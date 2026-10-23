@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>SMSFor · 常亮屏</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #0a0c10;
+    --muted: #667080;
+    --faint: #b3bac4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #000000; --fg: #ffffff; --muted: #8b949f; --faint: #2b3038; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; cursor: none; }
+  body {
+    color: var(--fg);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+    transition: background .2s ease, color .2s ease;
+  }
+  .code {
+    font-size: clamp(4rem, 30vw, 24rem);
+    line-height: .9;
+    font-weight: 600;
+    letter-spacing: .06em;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition: opacity .16s ease;
+  }
+  .code.idle { font-size: clamp(1.2rem, 4vw, 2rem); font-weight: 400; letter-spacing: .1em; color: var(--faint); }
+  .code.fade { opacity: 0; }
+  .meta { margin-top: 3vh; font-size: clamp(.8rem, 2vw, 1.1rem); color: var(--muted); letter-spacing: .08em; }
+  .hint { position: fixed; bottom: 16px; font-size: 11px; color: var(--faint); }
+</style>
+</head>
+<body>
+  <div id="code" class="code idle">等待验证码</div>
+  <div id="meta" class="meta"></div>
+  <div class="hint">SMSFor 常亮屏</div>
+
+<script>
+(() => {
+  const codeEl = document.getElementById('code');
+  const metaEl = document.getElementById('meta');
+  let state = { code: null, receivedAt: 0, expiresAt: 0 };
+  let clockOffset = 0;
+  let lastId = null;
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function fullTime(sec) {
+    if (!sec) return '';
+    const d = new Date(sec * 1000);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function render() {
+    const left = Math.max(0, Math.ceil(state.expiresAt - (Date.now() / 1000 + clockOffset)));
+    if (!state.code || left <= 0) {
+      codeEl.classList.add('idle');
+      codeEl.textContent = '等待验证码';
+      metaEl.textContent = '';
+      return;
+    }
+    codeEl.classList.remove('idle');
+    codeEl.textContent = state.code;
+    metaEl.textContent = `${fullTime(state.receivedAt)} 收到`;
+  }
+
+  function apply(data) {
+    if (data && typeof data.now === 'number') clockOffset = data.now - Date.now() / 1000;
+    if (data && data.id) lastId = data.id;
+    if (data && data.code && data.code !== state.code) {
+      codeEl.classList.add('fade');
+      setTimeout(() => codeEl.classList.remove('fade'), 110);
+    }
+    state = {
+      code: (data && data.code) || null,
+      receivedAt: (data && data.receivedAt) || 0,
+      expiresAt: (data && data.expiresAt) || 0,
+    };
+    render();
+  }
+
+  function connect() {
+    const es = new EventSource('/api/stream');
+    es.addEventListener('code', (e) => { try { apply(JSON.parse(e.data)); } catch { /* 忽略 */ } });
+  }
+
+  try { navigator.wakeLock?.request('screen').catch(() => {}); } catch { /* 忽略 */ }
+  fetch('/api/latest', { cache: 'no-store' }).then((r) => r.json()).then(apply).catch(() => {});
+  connect();
+  setInterval(render, 1000);
+})();
+</script>
+</body>
+</html>

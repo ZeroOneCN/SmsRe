@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>SMSFor</title>
+<style>
+  /* 默认：白天模式（白底黑字，强反差） */
+  :root {
+    --bg: #ffffff;
+    --fg: #0a0c10;
+    --muted: #667080;
+    --faint: #9aa3b0;
+    --line: #e4e7ec;
+    --track: #eceef2;
+    --fill: #0a0c10;
+    --dot-off: #c9ced6;
+    --dot-on: #0b8a4f;
+    --toast-bg: #0a0c10;
+    --toast-fg: #ffffff;
+  }
+  /* 夜间模式：黑底白字，随系统切换 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --muted: #8b949f;
+      --faint: #59616b;
+      --line: #1e2229;
+      --track: #171b21;
+      --fill: #ffffff;
+      --dot-off: #3a4048;
+      --dot-on: #35d07f;
+      --toast-bg: #ffffff;
+      --toast-fg: #000000;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    transition: background .2s ease, color .2s ease;
+  }
+
+  main {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top, 0) 20px env(safe-area-inset-bottom, 0);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-off); }
+  .dot.on { background: var(--dot-on); }
+  .spacer { flex: 1; }
+  .tool {
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .tool:hover { color: var(--fg); }
+
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+  }
+  .code {
+    font-size: clamp(3.5rem, 24vw, 19rem);
+    line-height: .95;
+    font-weight: 600;
+    letter-spacing: .06em;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    word-break: break-all;
+    transition: opacity .16s ease;
+    user-select: all;
+  }
+  .code.idle {
+    font-size: clamp(1.2rem, 4.6vw, 2rem);
+    font-weight: 400;
+    letter-spacing: .1em;
+    color: var(--faint);
+    user-select: none;
+  }
+  .code.fade { opacity: 0; }
+
+  .meta {
+    margin-top: clamp(16px, 4vh, 40px);
+    font-size: clamp(.85rem, 2.3vw, 1.05rem);
+    color: var(--muted);
+    letter-spacing: .04em;
+    text-align: center;
+  }
+  .countdown {
+    margin-top: 6px;
+    font-size: clamp(1rem, 2.8vw, 1.35rem);
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .08em;
+  }
+  .bar {
+    width: min(520px, 72vw);
+    height: 4px;
+    margin-top: 16px;
+    background: var(--track);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    width: 0;
+    background: var(--fill);
+    transition: width 1s linear;
+  }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    font-size: 11px;
+    color: var(--faint);
+    border-top: 1px solid var(--line);
+  }
+
+  /* 新验证码提示，5 秒自动消失 */
+  .toast {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translate(-50%, -16px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 18px;
+    border-radius: 10px;
+    background: var(--toast-bg);
+    color: var(--toast-fg);
+    font-size: 14px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 10;
+    max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast .t-code { font-size: 18px; font-weight: 600; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+  .toast .t-label { font-size: 12px; opacity: .72; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <span id="dot" class="dot"></span>
+    <span id="conn">连接中…</span>
+    <span class="spacer"></span>
+    <button class="tool" id="sound-btn" type="button">提示音：开</button>
+    <button class="tool" id="full-btn" type="button">全屏</button>
+  </header>
+
+  <section class="stage">
+    <div id="code" class="code idle">等待验证码</div>
+    <div id="meta" class="meta"></div>
+    <div id="countdown" class="countdown"></div>
+    <div class="bar"><div id="bar-fill" class="bar-fill"></div></div>
+  </section>
+
+  <footer>
+    <span id="clock">--:--:--</span>
+    <span>验证码到期自动清除</span>
+  </footer>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite">
+  <span class="t-label">新验证码</span>
+  <span class="t-code" id="toast-code"></span>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const codeEl = $('code'), metaEl = $('meta'), cdEl = $('countdown'), barEl = $('bar-fill');
+  const dotEl = $('dot'), connEl = $('conn'), toastEl = $('toast');
+
+  let state = { id: null, code: null, receivedAt: 0, expiresAt: 0, ambiguous: false, alternatives: [] };
+  let clockOffset = 0;        // 服务端时间 - 本地时间（秒）
+  let lastSeenId = null;      // 上次渲染的消息 id，用于避免重连时重复弹提示
+  let es = null;
+  let openedAt = Date.now();
+  let toastTimer = null;
+  let soundOn = localStorage.getItem('smsfor_sound') !== 'off';
+
+  /* ---------- 格式化 ---------- */
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  // 收到时间显示到年月日：2026-10-22 23:41:47
+  function fullTime(sec) {
+    if (!sec) return '';
+    const d = new Date(sec * 1000);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function secondsLeft() {
+    const nowSec = Date.now() / 1000 + clockOffset;
+    return Math.max(0, Math.ceil(state.expiresAt - nowSec));
+  }
+
+  function mmss(sec) {
+    return `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
+  }
+
+  /* ---------- 提示音 ---------- */
+  let audioCtx = null;
+  function beep() {
+    if (!soundOn) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.26);
+    } catch { /* 浏览器未授权音频时忽略 */ }
+  }
+
+  /* ---------- toast ---------- */
+  function showToast(code) {
+    $('toast-code').textContent = code;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 5000);
+  }
+
+  /* ---------- 渲染 ---------- */
+  function render() {
+    const left = secondsLeft();
+    if (!state.code || left <= 0) {
+      codeEl.classList.add('idle');
+      codeEl.textContent = '等待验证码';
+      metaEl.textContent = '';
+      cdEl.textContent = '';
+      barEl.style.width = '0%';
+      return;
+    }
+    codeEl.classList.remove('idle');
+    codeEl.textContent = state.code;
+    metaEl.textContent = `${fullTime(state.receivedAt)} 收到`;
+    cdEl.textContent = `剩余 ${mmss(left)}`;
+    const total = Math.max(1, state.expiresAt - state.receivedAt);
+    barEl.style.width = `${Math.min(100, (left / total) * 100)}%`;
+  }
+
+  function applyMessage(data, isLive) {
+    if (data && typeof data.now === 'number') clockOffset = data.now - Date.now() / 1000;
+
+    const isNew = Boolean(data && data.code && data.id && data.id !== lastSeenId && lastSeenId !== null);
+    if (data && data.id) lastSeenId = data.id;
+
+    // 新码到达：先更新数字，再弹提示，两者同时发生
+    if (isNew && data.code !== state.code) {
+      codeEl.classList.add('fade');
+      setTimeout(() => codeEl.classList.remove('fade'), 110);
+    }
+
+    state = {
+      id: (data && data.id) || null,
+      code: (data && data.code) || null,
+      receivedAt: (data && data.receivedAt) || 0,
+      expiresAt: (data && data.expiresAt) || 0,
+      ambiguous: Boolean(data && data.ambiguous),
+      alternatives: (data && data.alternatives) || [],
+    };
+    render();
+
+    if (isNew && isLive) {
+      showToast(data.code);
+      beep();
+    }
+  }
+
+  /* ---------- 连接 ---------- */
+  function setConn(on) {
+    dotEl.classList.toggle('on', on);
+    connEl.textContent = on ? '实时连接' : '重连中…';
+  }
+
+  function connect() {
+    if (es) es.close();
+    es = new EventSource('/api/stream');
+    es.addEventListener('open', () => setConn(true));
+    es.addEventListener('error', () => setConn(false));
+    es.addEventListener('code', (e) => {
+      setConn(true);
+      try { applyMessage(JSON.parse(e.data), true); } catch { /* 忽略坏帧 */ }
+    });
+  }
+
+  async function fetchLatest() {
+    try {
+      const res = await fetch('/api/latest', { cache: 'no-store' });
+      if (res.ok) applyMessage(await res.json(), false);
+    } catch { /* 离线时保留旧状态 */ }
+  }
+
+  /* ---------- 交互 ---------- */
+  function syncSoundBtn() {
+    $('sound-btn').textContent = `提示音：${soundOn ? '开' : '关'}`;
+  }
+
+  $('sound-btn').addEventListener('click', () => {
+    soundOn = !soundOn;
+    localStorage.setItem('smsfor_sound', soundOn ? 'on' : 'off');
+    syncSoundBtn();
+    if (soundOn) beep();
+  });
+
+  $('full-btn').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      fetchLatest();
+      if (!es || es.readyState === 2) connect();
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    navigator.sendBeacon?.('/api/dwell', new Blob([JSON.stringify({ ms: Date.now() - openedAt })], { type: 'application/json' }));
+  });
+
+  /* ---------- 启动 ---------- */
+  syncSoundBtn();
+  setConn(false);
+  fetchLatest();
+  connect();
+
+  setInterval(render, 1000);
+  setInterval(() => { $('clock').textContent = fullTime(Date.now() / 1000); }, 1000);
+  $('clock').textContent = fullTime(Date.now() / 1000);
+})();
+</script>
+</body>
+</html>

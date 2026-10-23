@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>SmsForwarder · 后台</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #fff;
+    --fg: #1c2128;
+    --muted: #6b7480;
+    --line: #e3e6eb;
+    --ok: #1f8a4c;
+    --bad: #c0392b;
+    --blue: #2b6cb0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  [hidden] { display: none !important; }
+  a { color: var(--blue); }
+
+  /* 登录 */
+  .gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .gate form { width: 300px; background: var(--panel); padding: 28px; border: 1px solid var(--line); border-radius: 10px; }
+  .gate h1 { margin: 0 0 18px; font-size: 17px; }
+  input, select, button { font: inherit; }
+  input, select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 6px; background: #fff; color: var(--fg); outline: none;
+  }
+  input:focus, select:focus { border-color: #b9c2ce; }
+  .btn {
+    padding: 9px 14px; border: 1px solid var(--line); border-radius: 6px;
+    background: #fff; color: var(--fg); cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { background: #f0f2f5; }
+  .btn.primary { background: var(--fg); border-color: var(--fg); color: #fff; }
+  .btn.danger { color: var(--bad); }
+  .btn.sm { padding: 4px 9px; font-size: 12px; }
+  .err { color: var(--bad); font-size: 13px; min-height: 20px; margin-top: 10px; }
+
+  /* 布局 */
+  .top {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 20px; height: 52px; background: var(--panel);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
+  }
+  .brand { font-weight: 600; letter-spacing: .02em; }
+  .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #c9ced6; }
+  .dot.on { background: var(--ok); }
+  .spacer { flex: 1; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 18px 20px 60px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .tab {
+    padding: 9px 14px; border: 0; background: none; cursor: pointer;
+    color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab.active { color: var(--fg); border-bottom-color: var(--fg); font-weight: 600; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; }
+  .card .k { font-size: 12px; color: var(--muted); }
+  .card .v { font-size: 26px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .card .v small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 16px; margin-top: 16px; }
+  .panel h2 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row > .grow { flex: 1; min-width: 120px; }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; background: #fafbfc; }
+  tbody tr:hover { background: #fafbfc; }
+  td.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .clip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clip.expanded { max-width: 680px; white-space: normal; word-break: break-all; cursor: pointer; }
+  .msg-text { cursor: pointer; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
+  .tag.ok { color: var(--ok); border-color: #bfe3cd; background: #f2fbf5; }
+  .tag.bad { color: var(--bad); border-color: #f0c8c3; background: #fdf4f3; }
+  .tag.dim { color: #8a929c; background: #f4f5f7; }
+
+  .bars { display: flex; flex-direction: column; gap: 6px; }
+  .bar-row { display: grid; grid-template-columns: 90px 1fr 44px; gap: 10px; align-items: center; font-size: 12px; }
+  .bar-track { height: 8px; background: #eef0f3; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #8fa3bd; border-radius: 4px; }
+  .empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <form id="gate-form">
+    <h1>后台登录</h1>
+    <input id="gate-pin" type="password" inputmode="numeric" maxlength="8" placeholder="管理 PIN" autocomplete="current-password">
+    <div class="err" id="gate-err"></div>
+    <button class="btn primary" type="submit" style="width:100%;margin-top:6px">登录</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <div class="top">
+    <span class="brand">SmsForwarder 后台</span>
+    <span class="status"><span id="dev-dot" class="dot"></span><span id="dev-text">设备状态加载中</span></span>
+    <span class="spacer"></span>
+    <button class="btn sm" id="refresh-btn" type="button">刷新</button>
+    <button class="btn sm" id="logout-btn" type="button">退出</button>
+  </div>
+
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab active" data-tab="overview" type="button">概览</button>
+      <button class="tab" data-tab="views" type="button">访问日志</button>
+      <button class="tab" data-tab="rules" type="button">IP 规则</button>
+      <button class="tab" data-tab="devices" type="button">设备</button>
+      <button class="tab" data-tab="messages" type="button">短信</button>
+    </div>
+
+    <!-- 概览 -->
+    <section id="tab-overview">
+      <div class="cards" id="cards"></div>
+      <div class="panel">
+        <h2>近 7 天访问</h2>
+        <div class="bars" id="bars"></div>
+      </div>
+      <div class="panel">
+        <h2>当前验证码</h2>
+        <div class="row">
+          <div class="grow" id="cur-code" style="font-size:22px;font-family:ui-monospace,monospace"></div>
+          <div class="muted" id="cur-meta"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>修改 PIN</h2>
+        <div class="row">
+          <input id="pin-current" type="password" inputmode="numeric" placeholder="当前后台 PIN" style="width:160px">
+          <input id="pin-next" type="password" inputmode="numeric" placeholder="新 PIN（4-8 位数字）" style="width:200px">
+          <button class="btn" id="pin-save" type="button">更新</button>
+        </div>
+        <div class="muted" id="pin-msg" style="margin-top:8px">仅用于保护后台管理页，前台展示不需要登录。</div>
+      </div>
+    </section>
+
+    <!-- 访问日志 -->
+    <section id="tab-views" hidden>
+      <div class="panel">
+        <div class="row" style="margin-bottom:12px">
+          <input id="f-ip" placeholder="按 IP 筛选" style="width:200px">
+          <select id="f-result" style="width:140px">
+            <option value="">全部结果</option>
+            <option value="success">成功查看</option>
+            <option value="denied">登录失败</option>
+            <option value="blocked">已被拦截</option>
+          </select>
+          <button class="btn sm" id="f-apply" type="button">查询</button>
+          <span class="spacer"></span>
+          <span class="muted" id="views-total"></span>
+        </div>
+        <table>
+          <thead>
+            <tr><th style="width:150px">时间</th><th>IP</th><th>结果</th><th>UA</th><th style="width:80px">停留</th><th style="width:90px">操作</th></tr>
+          </thead>
+          <tbody id="views-body"></tbody>
+        </table>
+        <div class="row" style="margin-top:12px">
+          <button class="btn sm" id="views-more" type="button">加载更多</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- IP 规则 -->
+    <section id="tab-rules" hidden>
+      <div class="panel">
+        <h2>新增规则</h2>
+        <div class="row">
+          <input id="rule-cidr" class="grow" placeholder="IP 或网段，如 1.2.3.4 / 10.0.0.0/8" style="max-width:320px">
+          <select id="rule-action" style="width:120px">
+            <option value="block">拉黑</option>
+            <option value="allow">始终放行</option>
+          </select>
+          <select id="rule-ttl" style="width:130px">
+            <option value="0">永久</option>
+            <option value="1">1 小时</option>
+            <option value="24">24 小时</option>
+            <option value="168">7 天</option>
+          </select>
+          <input id="rule-note" placeholder="备注（可选）" style="width:180px">
+          <button class="btn primary" id="rule-add" type="button">添加</button>
+        </div>
+        <div class="muted" id="rule-msg" style="margin-top:8px"></div>
+      </div>
+      <div class="panel">
+        <h2>规则列表</h2>
+        <table>
+          <thead><tr><th>规则</th><th style="width:90px">动作</th><th>备注</th><th style="width:70px">命中</th><th style="width:150px">到期</th><th style="width:70px"></th></tr></thead>
+          <tbody id="rules-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 设备 -->
+    <section id="tab-devices" hidden>
+      <div class="panel">
+        <h2>转发设备</h2>
+        <div class="muted" id="dev-hint" style="margin-bottom:10px"></div>
+        <table>
+          <thead><tr><th>名称</th><th style="width:80px">状态</th><th style="width:150px">最后心跳</th><th style="width:150px">最后短信</th><th>Token / Webhook</th><th style="width:150px">操作</th></tr></thead>
+          <tbody id="devices-body"></tbody>
+        </table>
+        <div class="muted" style="margin-top:10px">换机或 Token 泄露时点「轮换」，旧 Token 立即失效，需要同步改手机上的转发配置。</div>
+      </div>
+    </section>
+
+    <!-- 短信 -->
+    <section id="tab-messages" hidden>
+      <div class="panel">
+        <div class="row" style="margin-bottom:12px">
+          <h2 style="margin:0">最近短信</h2>
+          <span class="spacer"></span>
+          <button class="btn sm danger" id="msg-clear" type="button">清空全部</button>
+        </div>
+        <table>
+          <thead><tr><th style="width:56px">#</th><th style="width:158px">收到时间</th><th style="width:150px">发件人</th><th style="width:90px">验证码</th><th>短信全文</th><th style="width:90px">状态</th></tr></thead>
+          <tbody id="messages-body"></tbody>
+        </table>
+        <div class="muted" style="margin-top:10px">这里保留转发过来的完整短信内容，仅后台可见；前台永远不会展示发件人与原文。</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const gate = $('gate'), app = $('app');
+  let viewsOffset = 0;
+
+  /* ---------- 基础 ---------- */
+  const fmt = (sec) => (sec ? new Date(sec * 1000).toLocaleString('zh-CN', { hour12: false }) : '-');
+  const fmtTime = (sec) => (sec ? new Date(sec * 1000).toLocaleTimeString('zh-CN', { hour12: false }) : '-');
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const dur = (ms) => {
+    if (!ms) return '-';
+    const s = Math.round(ms / 1000);
+    return s >= 60 ? `${Math.floor(s / 60)}分${s % 60}秒` : `${s}秒`;
+  };
+
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      cache: 'no-store',
+      headers: opts.body ? { 'content-type': 'application/json' } : undefined,
+      ...opts,
+    });
+    if (res.status === 401) { showGate(); throw new Error('unauthorized'); }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  function showGate() {
+    app.hidden = true;
+    gate.hidden = false;
+    $('gate-pin').value = '';
+    $('gate-pin').focus();
+  }
+
+  /* ---------- 登录 ---------- */
+  $('gate-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('gate-err').textContent = '';
+    const pin = $('gate-pin').value.trim();
+    if (!pin) return;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pin, kind: 'admin' }),
+      });
+      if (res.ok) {
+        gate.hidden = true;
+        app.hidden = false;
+        loadAll();
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      $('gate-err').textContent = data.error === 'locked' ? '尝试次数过多，请 15 分钟后再试' : 'PIN 不正确';
+    } catch {
+      $('gate-err').textContent = '网络异常，请重试';
+    }
+  });
+
+  $('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'admin' }),
+    }).catch(() => {});
+    showGate();
+  });
+
+  /* ---------- 概览 ---------- */
+  let curMessage = null;   // 当前验证码，用于每秒本地倒数
+  let clockOffset = 0;     // 服务端时间 - 本地时间（秒）
+
+  function mmss(sec) {
+    const s = Math.max(0, Math.ceil(sec));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  function renderCurrent() {
+    if (!curMessage || !curMessage.code) {
+      $('cur-code').textContent = '—';
+      $('cur-meta').textContent = '当前没有有效验证码';
+      return;
+    }
+    const left = curMessage.expiresAt - (Date.now() / 1000 + clockOffset);
+    if (left <= 0) {
+      curMessage = null;
+      $('cur-code').textContent = '—';
+      $('cur-meta').textContent = '当前没有有效验证码';
+      return;
+    }
+    $('cur-code').textContent = curMessage.code;
+    $('cur-meta').textContent = `${fmt(curMessage.receivedAt)} 收到 · 剩余 ${mmss(left)}`;
+  }
+
+  async function loadOverview() {
+    const d = await api('/admin/api/overview');
+    const t = d.today || {};
+    const cards = [
+      ['今日查看', t.views, '次'],
+      ['独立 IP', t.uniqueIps, '个'],
+      ['登录失败', t.denied, '次'],
+      ['拦截请求', t.blocked, '次'],
+      ['今日短信', t.messages, '条'],
+      ['在线大屏', d.streams, '个'],
+    ];
+    $('cards').innerHTML = cards
+      .map(([k, v, u]) => `<div class="card"><div class="k">${k}</div><div class="v">${v ?? 0}<small>${u}</small></div></div>`)
+      .join('');
+
+    const dev = (d.devices || [])[0];
+    $('dev-dot').classList.toggle('on', Boolean(dev && dev.online));
+    $('dev-text').textContent = dev
+      ? `${dev.name} · ${dev.online ? '在线' : '离线'} · 心跳 ${fmtTime(dev.lastHeartbeatAt)}`
+      : '暂无设备';
+
+    clockOffset = Number(d.serverTime || 0) - Date.now() / 1000;
+    curMessage = d.current && d.current.code ? d.current : null;
+    renderCurrent();
+
+    const stats = await api('/admin/api/stats?days=7');
+    const rows = stats.rows || [];
+    const max = Math.max(1, ...rows.map((r) => Number(r.views)));
+    $('bars').innerHTML = rows.length
+      ? rows
+          .map(
+            (r) => `<div class="bar-row">
+              <span class="muted">${esc(r.day)}</span>
+              <span class="bar-track"><span class="bar-fill" style="width:${(Number(r.views) / max) * 100}%"></span></span>
+              <span style="text-align:right">${r.views}</span>
+            </div>`,
+          )
+          .join('')
+      : '<div class="empty">暂无访问记录</div>';
+  }
+
+  $('pin-save').addEventListener('click', async () => {
+    const body = {
+      current: $('pin-current').value.trim(),
+      next: $('pin-next').value.trim(),
+    };
+    if (!body.current || !body.next) {
+      $('pin-msg').textContent = '请填写当前 PIN 与新 PIN';
+      return;
+    }
+    try {
+      await api('/admin/api/pin', { method: 'POST', body: JSON.stringify(body) });
+      $('pin-current').value = '';
+      $('pin-next').value = '';
+      $('pin-msg').textContent = '已更新';
+    } catch (err) {
+      $('pin-msg').textContent = err.message === 'bad_pin'
+        ? '当前 PIN 不正确'
+        : err.message === 'invalid_pin' ? '新 PIN 需为 4-8 位数字' : '更新失败';
+    }
+  });
+
+  /* ---------- 访问日志 ---------- */
+  async function loadViews(reset = true) {
+    if (reset) viewsOffset = 0;
+    const ip = $('f-ip').value.trim();
+    const result = $('f-result').value;
+    const q = new URLSearchParams({ limit: '50', offset: String(viewsOffset) });
+    if (ip) q.set('ip', ip);
+    if (result) q.set('result', result);
+    const d = await api(`/admin/api/views?${q}`);
+    $('views-total').textContent = `共 ${d.total} 条`;
+    const html = d.items
+      .map((v) => {
+        const tag = v.result === 'success' ? 'ok' : v.result === 'blocked' ? 'bad' : 'dim';
+        const label = v.result === 'success' ? '成功查看' : v.result === 'blocked' ? '已拦截' : '登录失败';
+        return `<tr>
+          <td>${fmt(v.time)}</td>
+          <td class="mono clip" title="${esc(v.ipFull)}">${esc(v.ip)}</td>
+          <td><span class="tag ${tag}">${label}</span></td>
+          <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
+          <td>${dur(v.dwellMs)}</td>
+          <td><button class="btn sm danger" data-block="${esc(v.ipFull)}" type="button">拉黑</button></td>
+        </tr>`;
+      })
+      .join('');
+    if (reset) $('views-body').innerHTML = html || '<tr><td colspan="6" class="empty">暂无记录</td></tr>';
+    else $('views-body').insertAdjacentHTML('beforeend', html);
+    viewsOffset += d.items.length;
+    $('views-more').hidden = viewsOffset >= d.total;
+  }
+
+  $('views-body').addEventListener('click', async (e) => {
+    const ip = e.target.dataset.block;
+    if (!ip) return;
+    if (!confirm(`确认拉黑 IP ${ip}？`)) return;
+    await api('/admin/api/ip-rules', {
+      method: 'POST',
+      body: JSON.stringify({ cidr: ip, action: 'block', note: '来自访问日志', ttlHours: 0 }),
+    });
+    alert('已拉黑');
+    loadRules();
+  });
+
+  $('f-apply').addEventListener('click', () => loadViews(true).catch(() => {}));
+  $('views-more').addEventListener('click', () => loadViews(false).catch(() => {}));
+
+  /* ---------- IP 规则 ---------- */
+  async function loadRules() {
+    const d = await api('/admin/api/ip-rules');
+    $('rules-body').innerHTML = (d.items || [])
+      .map(
+        (r) => `<tr>
+          <td class="mono">${esc(r.cidr)}</td>
+          <td><span class="tag ${r.action === 'block' ? 'bad' : 'ok'}">${r.action === 'block' ? '拉黑' : '放行'}</span></td>
+          <td class="clip" title="${esc(r.note)}">${esc(r.note || '-')}</td>
+          <td>${r.hits}</td>
+          <td>${r.expiresAt ? fmt(r.expiresAt) : '永久'}</td>
+          <td><button class="btn sm" data-del="${r.id}" type="button">删除</button></td>
+        </tr>`,
+      )
+      .join('') || '<tr><td colspan="6" class="empty">暂无规则</td></tr>';
+  }
+
+  $('rules-body').addEventListener('click', async (e) => {
+    const id = e.target.dataset.del;
+    if (!id || !confirm('确认删除该规则？')) return;
+    await api(`/admin/api/ip-rules/${id}`, { method: 'DELETE' });
+    loadRules();
+  });
+
+  $('rule-add').addEventListener('click', async () => {
+    const cidr = $('rule-cidr').value.trim();
+    if (!cidr) return;
+    $('rule-msg').textContent = '';
+    try {
+      await api('/admin/api/ip-rules', {
+        method: 'POST',
+        body: JSON.stringify({
+          cidr,
+          action: $('rule-action').value,
+          ttlHours: Number($('rule-ttl').value),
+          note: $('rule-note').value.trim(),
+        }),
+      });
+      $('rule-cidr').value = '';
+      $('rule-note').value = '';
+      loadRules();
+    } catch (err) {
+      $('rule-msg').textContent = err.message === 'invalid_cidr' ? 'IP 或网段格式不正确' : '添加失败';
+    }
+  });
+
+  /* ---------- 设备 ---------- */
+  async function loadDevices() {
+    const d = await api('/admin/api/devices');
+    // 通过 127.0.0.1 打开后台时，复制出的地址手机访问不到，改用本机局域网 IP
+    const loopback = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(location.hostname);
+    const base = (loopback && d.lanUrls && d.lanUrls[0]) || location.origin;
+    $('dev-hint').innerHTML = loopback
+      ? `当前后台是用 <code>${esc(location.hostname)}</code> 打开的，手机访问不到这个地址；下面已自动换成局域网地址 <code>${esc(base)}</code>。请确保手机与电脑连接同一个 Wi-Fi。`
+      : '';
+    $('devices-body').innerHTML = (d.items || [])
+      .map(
+        (dev) => `<tr>
+          <td>${esc(dev.name)}</td>
+          <td><span class="tag ${dev.enabled ? 'ok' : 'dim'}">${dev.enabled ? '启用' : '停用'}</span></td>
+          <td>${fmt(dev.lastHeartbeatAt)}</td>
+          <td>${fmt(dev.lastMessageAt)}</td>
+          <td class="mono clip" title="${esc(base)}/h/${esc(dev.token)}">${esc(base)}/h/${esc(dev.token)}</td>
+          <td>
+            <button class="btn sm" data-copy-url="${esc(base)}/h/${esc(dev.token)}" type="button">复制地址</button>
+            <button class="btn sm" data-copy="${esc(dev.token)}" type="button">复制 Token</button>
+            <button class="btn sm" data-rotate="${dev.id}" type="button">轮换</button>
+            <button class="btn sm" data-toggle="${dev.id}" type="button">${dev.enabled ? '停用' : '启用'}</button>
+          </td>
+        </tr>`,
+      )
+      .join('') || '<tr><td colspan="6" class="empty">暂无设备</td></tr>';
+  }
+
+  $('devices-body').addEventListener('click', async (e) => {
+    const btn = e.target;
+    if (btn.dataset.copyUrl) {
+      await navigator.clipboard.writeText(btn.dataset.copyUrl).catch(() => {});
+      btn.textContent = '已复制';
+      setTimeout(() => (btn.textContent = '复制地址'), 1200);
+    }
+    if (btn.dataset.copy) {
+      await navigator.clipboard.writeText(btn.dataset.copy).catch(() => {});
+      btn.textContent = '已复制';
+      setTimeout(() => (btn.textContent = '复制 Token'), 1200);
+    }
+    if (btn.dataset.rotate && confirm('轮换后旧 Token 立即失效，手机端需要同步修改。继续？')) {
+      const d = await api(`/admin/api/devices/${btn.dataset.rotate}/rotate`, { method: 'POST' });
+      alert(`新 Webhook 地址：${location.origin}/h/${d.token}\n新 Token：${d.token}`);
+      loadDevices();
+    }
+    if (btn.dataset.toggle) {
+      await api(`/admin/api/devices/${btn.dataset.toggle}/toggle`, { method: 'POST' });
+      loadDevices();
+    }
+  });
+
+  /* ---------- 短信 ---------- */
+  async function loadMessages() {
+    const d = await api('/admin/api/messages?limit=50');
+    $('messages-body').innerHTML = (d.items || [])
+      .map((m) => {
+        const status = m.status === 'active' ? '有效' : m.status === 'dropped' ? '未识别' : '已过期';
+        return `<tr>
+          <td>${m.id}</td>
+          <td>${fmt(m.receivedAt)}</td>
+          <td class="clip" title="${esc(m.sender || '')}">${esc(m.sender || '-')}</td>
+          <td class="mono">${esc(m.code || '-')}</td>
+          <td class="clip msg-text" title="${esc(m.rawText || '')}">${esc(m.rawText || '-')}</td>
+          <td><span class="tag ${m.status === 'active' ? 'ok' : 'dim'}">${status}</span></td>
+        </tr>`;
+      })
+      .join('') || '<tr><td colspan="6" class="empty">暂无短信</td></tr>';
+  }
+
+  // 点击短信内容可展开看全文
+  $('messages-body').addEventListener('click', (e) => {
+    const cell = e.target.closest('.msg-text');
+    if (cell) cell.classList.toggle('expanded');
+  });
+
+  $('msg-clear').addEventListener('click', async () => {
+    if (!confirm('清空全部短信记录？此操作不可恢复。')) return;
+    await api('/admin/api/messages', { method: 'DELETE' });
+    loadMessages();
+  });
+
+  /* ---------- 标签切换 ---------- */
+  const loaders = {
+    overview: loadOverview,
+    views: () => loadViews(true),
+    rules: loadRules,
+    devices: loadDevices,
+    messages: loadMessages,
+  };
+  let currentTab = 'overview';
+
+  document.querySelectorAll('.tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+      ['overview', 'views', 'rules', 'devices', 'messages'].forEach((id) => {
+        $(`tab-${id}`).hidden = id !== currentTab;
+      });
+      loaders[currentTab]().catch(() => {});
+    });
+  });
+
+  $('refresh-btn').addEventListener('click', () => loaders[currentTab]().catch(() => {}));
+
+  function loadAll() {
+    loaders[currentTab]().catch(() => {});
+  }
+
+  // 概览的当前验证码每秒本地倒数，30 秒再向服务端刷新一次数据
+  setInterval(() => { if (!app.hidden && currentTab === 'overview') renderCurrent(); }, 1000);
+  setInterval(() => { if (!app.hidden && currentTab === 'overview') loadOverview().catch(() => {}); }, 30000);
+
+  /* 启动 */
+  fetch('/api/me', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((me) => {
+      if (me.admin) { gate.hidden = true; app.hidden = false; loadAll(); }
+      else { gate.hidden = false; $('gate-pin').focus(); }
+    })
+    .catch(() => { gate.hidden = false; });
+})();
+</script>
+</body>
+</html>

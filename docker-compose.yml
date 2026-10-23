@@ -1,0 +1,20 @@
+services:
+  smsfor:
+    build: .
+    image: smsfor:latest
+    container_name: smsfor
+    restart: unless-stopped
+    # 只监听本机，由 Nginx / Cloudflare Tunnel 对外提供 HTTPS
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
