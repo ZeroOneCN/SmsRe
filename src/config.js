@@ -57,6 +57,8 @@ export const config = {
   codeTtlSeconds: int('CODE_TTL_SECONDS', 600),
   // 设备超过该时长无短信/心跳则告警（分钟）
   offlineAlertMinutes: int('OFFLINE_ALERT_MINUTES', 15),
+  // 是否拦截海外 IP（离线归属地判定，内网与查不到的 IP 一律放行）
+  blockOverseas: bool('BLOCK_OVERSEAS', true),
   // 可选：飞书/Bark/自建 webhook 告警地址
   alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '',
   // 后台是否仅允许指定 IP（逗号分隔，支持 CIDR）

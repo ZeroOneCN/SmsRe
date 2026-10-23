@@ -26,7 +26,7 @@ import {
   verifyPin,
 } from './security.js';
 import { extractCode } from './extract.js';
-import { ipLocation } from './geo.js';
+import { isOverseas, ipLocation } from './geo.js';
 
 const now = () => Math.floor(Date.now() / 1000);
 const ADMIN_COOKIE = 'asid';
@@ -254,6 +254,11 @@ app.addHook('onRequest', async (req, reply) => {
   if (rule) {
     db.prepare('UPDATE ip_rules SET hits = hits + 1 WHERE id = ?').run(rule.id);
     recordView(ip, req.headers['user-agent'], 'blocked');
+    return reply.code(403).type('text/plain').send('Forbidden');
+  }
+  // 海外 IP 一律拦截并留痕；已登录后台的会话放行，避免自己用代理时被锁在门外
+  if (!isAdmin && config.blockOverseas && isOverseas(ip)) {
+    recordView(ip, req.headers['user-agent'], 'overseas');
     return reply.code(403).type('text/plain').send('Forbidden');
   }
 });
@@ -541,7 +546,7 @@ app.get('/admin/api/overview', async (req, reply) => {
       views: one('SELECT COUNT(*) AS c FROM views WHERE viewed_at >= ?', start),
       uniqueIps: one('SELECT COUNT(DISTINCT ip) AS c FROM views WHERE viewed_at >= ?', start),
       denied: one("SELECT COUNT(*) AS c FROM views WHERE viewed_at >= ? AND result = 'denied'", start),
-      blocked: one("SELECT COUNT(*) AS c FROM views WHERE viewed_at >= ? AND result = 'blocked'", start),
+      blocked: one("SELECT COUNT(*) AS c FROM views WHERE viewed_at >= ? AND result IN ('blocked', 'overseas')", start),
       messages: one('SELECT COUNT(*) AS c FROM messages WHERE received_at >= ?', start),
       dropped: one("SELECT COUNT(*) AS c FROM messages WHERE received_at >= ? AND status = 'dropped'", start),
     },
@@ -594,7 +599,7 @@ app.get('/admin/api/views', async (req, reply) => {
     where.push('ip LIKE ?');
     params.push(`%${ip}%`);
   }
-  if (['success', 'denied', 'blocked'].includes(result)) {
+  if (['success', 'denied', 'blocked', 'overseas'].includes(result)) {
     where.push('result = ?');
     params.push(result);
   }

@@ -167,6 +167,7 @@
             <option value="success">成功查看</option>
             <option value="denied">登录失败</option>
             <option value="blocked">已被拦截</option>
+            <option value="overseas">海外拦截</option>
           </select>
           <button class="btn sm" id="f-apply" type="button">查询</button>
           <span class="spacer"></span>
@@ -258,6 +259,13 @@
   let viewsPage = 1;
   let viewsPages = 1;
   const VIEWS_PAGE_SIZE = 10;
+  // 访问结果 → [展示文案, 标签样式]
+  const VIEW_RESULTS = {
+    success: ['成功查看', 'ok'],
+    blocked: ['已拦截', 'bad'],
+    overseas: ['海外拦截', 'bad'],
+    denied: ['登录失败', 'dim'],
+  };
 
   /* ---------- 基础 ---------- */
   const fmt = (sec) => (sec ? new Date(sec * 1000).toLocaleString('zh-CN', { hour12: false }) : '-');
@@ -429,13 +437,12 @@
     $('views-page').textContent = `第 ${viewsPage} / ${viewsPages} 页`;
     const html = d.items
       .map((v) => {
-        const tag = v.result === 'success' ? 'ok' : v.result === 'blocked' ? 'bad' : 'dim';
-        const label = v.result === 'success' ? '成功查看' : v.result === 'blocked' ? '已拦截' : '登录失败';
+        const meta = VIEW_RESULTS[v.result] || [v.result, 'dim'];
         return `<tr>
           <td>${fmt(v.time)}</td>
           <td class="mono">${esc(v.ip)}</td>
           <td class="clip" title="${esc(v.location)}">${esc(v.location)}</td>
-          <td><span class="tag ${tag}">${label}</span></td>
+          <td><span class="tag ${meta[1]}">${meta[0]}</span></td>
           <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
           <td>${dur(v.dwellMs)}</td>
           <td><button class="btn sm danger" data-block="${esc(v.ip)}" type="button">拉黑</button></td>
