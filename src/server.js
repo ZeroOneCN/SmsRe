@@ -249,6 +249,10 @@ app.addHook('onRequest', async (req, reply) => {
   // 健康检查放行，其余请求（含转发器）一律先过 IP 规则
   if (req.url === '/healthz') return;
 
+  // 登录页与认证接口始终可达：否则把自己 IP 拉黑（或海外网络登录）后会彻底锁死，进不了后台解封
+  const pathname = req.url.split('?')[0];
+  if (pathname === '/admin' || pathname === '/api/me' || pathname.startsWith('/api/auth')) return;
+
   const ip = clientIp(req);
   // 已登录后台的会话始终放行，防止误拉黑自己的 IP 后无法进入后台解封
   const isAdmin = getSession(req.cookies?.[ADMIN_COOKIE], 'admin');

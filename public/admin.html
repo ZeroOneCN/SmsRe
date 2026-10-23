@@ -341,6 +341,10 @@
         loadAll();
         return;
       }
+      if (res.status === 403) {
+        $('gate-err').textContent = '当前 IP 已被拦截，请先移除对应 IP 规则';
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       $('gate-err').textContent = data.error === 'locked' ? '尝试次数过多，请 15 分钟后再试' : 'PIN 不正确';
     } catch {
