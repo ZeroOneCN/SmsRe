@@ -250,14 +250,16 @@ app.addHook('onRequest', async (req, reply) => {
   const ip = clientIp(req);
   // 已登录后台的会话始终放行，防止误拉黑自己的 IP 后无法进入后台解封
   const isAdmin = getSession(req.cookies?.[ADMIN_COOKIE], 'admin');
-  const rule = isAdmin ? null : matchedBlock(ip);
+  // 「始终放行」规则同时豁免黑名单与海外拦截，可用于放行自己的固定出口 IP
+  const allowed = ruleCache.allow.some((r) => ipInCidr(ip, r.cidr));
+  const rule = isAdmin || allowed ? null : matchedBlock(ip);
   if (rule) {
     db.prepare('UPDATE ip_rules SET hits = hits + 1 WHERE id = ?').run(rule.id);
     recordView(ip, req.headers['user-agent'], 'blocked');
     return reply.code(403).type('text/plain').send('Forbidden');
   }
   // 海外 IP 一律拦截并留痕；已登录后台的会话放行，避免自己用代理时被锁在门外
-  if (!isAdmin && config.blockOverseas && isOverseas(ip)) {
+  if (!isAdmin && !allowed && config.blockOverseas && isOverseas(ip)) {
     recordView(ip, req.headers['user-agent'], 'overseas');
     return reply.code(403).type('text/plain').send('Forbidden');
   }
