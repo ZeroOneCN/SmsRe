@@ -46,6 +46,20 @@
   .btn.primary { background: var(--fg); border-color: var(--fg); color: #fff; }
   .btn.danger { color: var(--bad); }
   .btn.sm { padding: 4px 9px; font-size: 12px; }
+  /* 开关 */
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .switch input { display: none; }
+  .switch .track {
+    width: 40px; height: 22px; border-radius: 11px; background: #d6dbe3;
+    position: relative; transition: background .15s ease;
+  }
+  .switch .track::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+    transition: transform .15s ease;
+  }
+  .switch input:checked + .track { background: var(--bad); }
+  .switch input:checked + .track::after { transform: translateX(18px); }
   .err { color: var(--bad); font-size: 13px; min-height: 20px; margin-top: 10px; }
 
   /* 布局 */
@@ -193,6 +207,17 @@
 
     <!-- IP 规则 -->
     <section id="tab-rules" hidden>
+      <div class="panel">
+        <div class="row">
+          <h2 style="margin:0">海外 IP 拦截</h2>
+          <label class="switch">
+            <input type="checkbox" id="overseas-toggle">
+            <span class="track"></span>
+            <span id="overseas-state" class="muted">已关闭</span>
+          </label>
+          <span class="muted">开启后非中国大陆来源一律 403 并记入访问日志；内网、已登录后台与「始终放行」IP 不受影响。</span>
+        </div>
+      </div>
       <div class="panel">
         <h2>新增规则</h2>
         <div class="row">
@@ -373,6 +398,9 @@
       .map(([k, v, u]) => `<div class="card"><div class="k">${k}</div><div class="v">${v ?? 0}<small>${u}</small></div></div>`)
       .join('');
 
+    $('overseas-toggle').checked = Boolean(d.blockOverseas);
+    syncOverseas();
+
     const dev = (d.devices || [])[0];
     $('dev-dot').classList.toggle('on', Boolean(dev && dev.online));
     $('dev-text').textContent = dev
@@ -499,6 +527,26 @@
       )
       .join('') || '<tr><td colspan="6" class="empty">暂无规则</td></tr>';
   }
+
+  /* ---------- 海外 IP 拦截开关 ---------- */
+  function syncOverseas() {
+    const on = $('overseas-toggle').checked;
+    $('overseas-state').textContent = on ? '已开启' : '已关闭';
+    $('overseas-state').style.color = on ? 'var(--bad)' : 'var(--muted)';
+  }
+
+  $('overseas-toggle').addEventListener('change', async (e) => {
+    const enabled = e.target.checked;
+    e.target.disabled = true;
+    try {
+      await api('/admin/api/overseas', { method: 'POST', body: JSON.stringify({ enabled }) });
+    } catch {
+      e.target.checked = !enabled;
+    } finally {
+      e.target.disabled = false;
+      syncOverseas();
+    }
+  });
 
   $('rules-body').addEventListener('click', async (e) => {
     const id = e.target.dataset.del;

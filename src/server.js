@@ -29,6 +29,8 @@ import { extractCode } from './extract.js';
 import { isOverseas, ipLocation } from './geo.js';
 
 const now = () => Math.floor(Date.now() / 1000);
+// 海外 IP 拦截开关：后台可一键切换，环境变量只作为首次启动的默认值
+let blockOverseasEnabled = getSetting('block_overseas', config.blockOverseas ? '1' : '0') === '1';
 const ADMIN_COOKIE = 'asid';
 // 16 位十六进制（64 位随机数）：足够抗猜解，又能完整显示在手机 App 的窄输入框里
 const newToken = () => randomBytes(8).toString('hex');
@@ -259,7 +261,7 @@ app.addHook('onRequest', async (req, reply) => {
     return reply.code(403).type('text/plain').send('Forbidden');
   }
   // 海外 IP 一律拦截并留痕；已登录后台的会话放行，避免自己用代理时被锁在门外
-  if (!isAdmin && !allowed && config.blockOverseas && isOverseas(ip)) {
+  if (!isAdmin && !allowed && blockOverseasEnabled && isOverseas(ip)) {
     recordView(ip, req.headers['user-agent'], 'overseas');
     return reply.code(403).type('text/plain').send('Forbidden');
   }
@@ -565,6 +567,7 @@ app.get('/admin/api/overview', async (req, reply) => {
       tokenMasked: `${String(d.token).slice(0, 6)}…${String(d.token).slice(-4)}`,
     })),
     codeTtlSeconds: getIntSetting('code_ttl_seconds', config.codeTtlSeconds),
+    blockOverseas: blockOverseasEnabled,
     current: publicMessage(currentMessage()),
     serverTime: t,
   };
@@ -677,6 +680,18 @@ app.delete('/admin/api/ip-rules/:id', async (req, reply) => {
   reloadRules();
   audit('admin', 'ip_rule_del', { id: req.params.id });
   return { ok: true };
+});
+
+/**
+ * 一键开关海外 IP 拦截，立即生效（无需重启）。
+ */
+app.post('/admin/api/overseas', async (req, reply) => {
+  const session = requireAdmin(req, reply);
+  if (!session) return;
+  blockOverseasEnabled = Boolean(req.body?.enabled);
+  setSetting('block_overseas', blockOverseasEnabled ? '1' : '0');
+  audit('admin', 'overseas_toggle', { enabled: blockOverseasEnabled });
+  return { ok: true, enabled: blockOverseasEnabled };
 });
 
 app.get('/admin/api/devices', async (req, reply) => {
