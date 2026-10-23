@@ -26,6 +26,7 @@ import {
   verifyPin,
 } from './security.js';
 import { extractCode } from './extract.js';
+import { ipLocation } from './geo.js';
 
 const now = () => Math.floor(Date.now() / 1000);
 const ADMIN_COOKIE = 'asid';
@@ -617,6 +618,7 @@ app.get('/admin/api/views', async (req, reply) => {
       time: r.viewed_at,
       ip: maskIp(r.ip),
       ipFull: r.ip,
+      location: ipLocation(r.ip),
       ua: r.ua,
       result: r.result,
       messageId: r.message_id,

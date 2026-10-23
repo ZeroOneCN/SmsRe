@@ -86,6 +86,9 @@
   .clip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .clip.expanded { max-width: 680px; white-space: normal; word-break: break-all; cursor: pointer; }
   .msg-text { cursor: pointer; }
+  td.actions { white-space: nowrap; }
+  td.actions .btn { margin-left: 6px; }
+  td.actions .btn:first-child { margin-left: 0; }
   .tag { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
   .tag.ok { color: var(--ok); border-color: #bfe3cd; background: #f2fbf5; }
   .tag.bad { color: var(--bad); border-color: #f0c8c3; background: #fdf4f3; }
@@ -169,7 +172,7 @@
         </div>
         <table>
           <thead>
-            <tr><th style="width:150px">时间</th><th>IP</th><th>结果</th><th>UA</th><th style="width:80px">停留</th><th style="width:90px">操作</th></tr>
+            <tr><th style="width:150px">时间</th><th style="width:120px">IP（脱敏）</th><th style="width:180px">归属地</th><th style="width:100px">结果</th><th>UA</th><th style="width:70px">停留</th><th style="width:80px">操作</th></tr>
           </thead>
           <tbody id="views-body"></tbody>
         </table>
@@ -215,7 +218,7 @@
         <h2>转发设备</h2>
         <div class="muted" id="dev-hint" style="margin-bottom:10px"></div>
         <table>
-          <thead><tr><th>名称</th><th style="width:80px">状态</th><th style="width:150px">最后心跳</th><th style="width:150px">最后短信</th><th>Token / Webhook</th><th style="width:150px">操作</th></tr></thead>
+          <thead><tr><th>名称</th><th style="width:80px">状态</th><th style="width:150px">最后心跳</th><th style="width:150px">最后短信</th><th>Token / Webhook</th><th style="width:330px">操作</th></tr></thead>
           <tbody id="devices-body"></tbody>
         </table>
         <div class="muted" style="margin-top:10px">换机或 Token 泄露时点「轮换」，旧 Token 立即失效，需要同步改手机上的转发配置。</div>
@@ -415,7 +418,8 @@
         const label = v.result === 'success' ? '成功查看' : v.result === 'blocked' ? '已拦截' : '登录失败';
         return `<tr>
           <td>${fmt(v.time)}</td>
-          <td class="mono clip" title="${esc(v.ipFull)}">${esc(v.ip)}</td>
+          <td class="mono">${esc(v.ip)}</td>
+          <td class="clip" title="${esc(v.location)}">${esc(v.location)}</td>
           <td><span class="tag ${tag}">${label}</span></td>
           <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
           <td>${dur(v.dwellMs)}</td>
@@ -423,7 +427,7 @@
         </tr>`;
       })
       .join('');
-    if (reset) $('views-body').innerHTML = html || '<tr><td colspan="6" class="empty">暂无记录</td></tr>';
+    if (reset) $('views-body').innerHTML = html || '<tr><td colspan="7" class="empty">暂无记录</td></tr>';
     else $('views-body').insertAdjacentHTML('beforeend', html);
     viewsOffset += d.items.length;
     $('views-more').hidden = viewsOffset >= d.total;
@@ -507,7 +511,7 @@
           <td>${fmt(dev.lastHeartbeatAt)}</td>
           <td>${fmt(dev.lastMessageAt)}</td>
           <td class="mono clip" title="${esc(base)}/h/${esc(dev.token)}">${esc(base)}/h/${esc(dev.token)}</td>
-          <td>
+          <td class="actions">
             <button class="btn sm" data-copy-url="${esc(base)}/h/${esc(dev.token)}" type="button">复制地址</button>
             <button class="btn sm" data-copy="${esc(dev.token)}" type="button">复制 Token</button>
             <button class="btn sm" data-rotate="${dev.id}" type="button">轮换</button>

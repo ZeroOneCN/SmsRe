@@ -95,7 +95,7 @@
     letter-spacing: .06em;
     font-variant-numeric: tabular-nums;
     text-align: center;
-    word-break: break-all;
+    white-space: nowrap;
     transition: opacity .16s ease;
     user-select: all;
   }
@@ -236,6 +236,23 @@
     return `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
   }
 
+  /* ---------- 验证码单行自适应 ---------- */
+  // 等宽字体每个字符约 0.6em、字距 0.06em，按视口宽度反算字号，保证手机上也只占一行
+  let fittedFor = '';
+  function fitCode() {
+    if (!state.code) {
+      codeEl.style.fontSize = '';
+      fittedFor = '';
+      return;
+    }
+    const key = `${state.code}|${window.innerWidth}`;
+    if (key === fittedFor) return;
+    fittedFor = key;
+    const chars = Math.max(1, state.code.length);
+    const size = Math.min(300, (window.innerWidth - 48) / (chars * 0.66));
+    codeEl.style.fontSize = `${Math.max(24, size)}px`;
+  }
+
   /* ---------- 提示音 ---------- */
   let audioCtx = null;
   function beep() {
@@ -267,6 +284,7 @@
     if (!state.code || left <= 0) {
       codeEl.classList.add('idle');
       codeEl.textContent = '等待验证码';
+      fitCode();
       metaEl.textContent = '';
       cdEl.textContent = '';
       barEl.style.width = '0%';
@@ -274,6 +292,7 @@
     }
     codeEl.classList.remove('idle');
     codeEl.textContent = state.code;
+    fitCode();
     metaEl.textContent = `${fullTime(state.receivedAt)} 收到`;
     cdEl.textContent = `剩余 ${mmss(left)}`;
     const total = Math.max(1, state.expiresAt - state.receivedAt);
@@ -367,6 +386,8 @@
   connect();
 
   setInterval(render, 1000);
+  window.addEventListener('resize', fitCode);
+  window.addEventListener('orientationchange', fitCode);
   setInterval(() => { $('clock').textContent = fullTime(Date.now() / 1000); }, 1000);
   $('clock').textContent = fullTime(Date.now() / 1000);
 })();
