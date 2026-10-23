@@ -101,11 +101,6 @@ db.exec(`
     detail TEXT,
     at     INTEGER NOT NULL
   );
-
-  CREATE TABLE IF NOT EXISTS blocked_seen (
-    ip   TEXT PRIMARY KEY,
-    at   INTEGER NOT NULL
-  );
 `);
 
 /**

@@ -127,24 +127,28 @@ function matchedBlock(ip) {
   return ruleCache.block.find((r) => ipInCidr(ip, r.cidr)) || null;
 }
 
+// 同一 IP 与结果在 60 秒内重复触发时合并为一条，避免刷新页面把日志刷爆
+const VIEW_DEDUP_SECONDS = 60;
+
 /**
- * 记录被拦截访问，同一 IP 每分钟最多记一条，避免刷库。
+ * 写入访问审计。同一 IP、同一结果在去重窗口内只保留一条记录。
  * @param {string} ip 客户端 IP
  * @param {string} ua User-Agent
+ * @param {string} result 访问结果（success / denied / blocked）
+ * @param {number|null} messageId 关联的短信 id，可为空
  * @returns {void}
  */
-function logBlocked(ip, ua) {
+function recordView(ip, ua, result, messageId = null) {
   const t = now();
-  const seen = db.prepare('SELECT at FROM blocked_seen WHERE ip = ?').get(ip);
-  if (seen && t - Number(seen.at) < 60) return;
-  db.prepare('INSERT INTO blocked_seen (ip, at) VALUES (?, ?) ON CONFLICT(ip) DO UPDATE SET at = excluded.at').run(
-    ip,
-    t,
-  );
-  db.prepare('INSERT INTO views (ip, ua, result, viewed_at) VALUES (?, ?, ?, ?)').run(
+  const recent = db
+    .prepare('SELECT id FROM views WHERE ip = ? AND result = ? AND viewed_at > ? ORDER BY id DESC LIMIT 1')
+    .get(ip, result, t - VIEW_DEDUP_SECONDS);
+  if (recent) return;
+  db.prepare('INSERT INTO views (message_id, ip, ua, result, viewed_at) VALUES (?, ?, ?, ?, ?)').run(
+    messageId,
     ip,
     String(ua || '').slice(0, 300),
-    'blocked',
+    result,
     t,
   );
 }
@@ -249,7 +253,7 @@ app.addHook('onRequest', async (req, reply) => {
   const rule = isAdmin ? null : matchedBlock(ip);
   if (rule) {
     db.prepare('UPDATE ip_rules SET hits = hits + 1 WHERE id = ?').run(rule.id);
-    logBlocked(ip, req.headers['user-agent']);
+    recordView(ip, req.headers['user-agent'], 'blocked');
     return reply.code(403).type('text/plain').send('Forbidden');
   }
 });
@@ -417,12 +421,7 @@ app.post('/api/auth', async (req, reply) => {
   if (!pin || pin.length > 32) return reply.code(400).send({ ok: false, error: 'invalid' });
 
   if (recentFailures(ip, kind, 900) >= 5) {
-    db.prepare('INSERT INTO views (ip, ua, result, viewed_at) VALUES (?, ?, ?, ?)').run(
-      ip,
-      String(ua || '').slice(0, 300),
-      'denied',
-      now(),
-    );
+    recordView(ip, ua, 'denied');
     return reply.code(429).send({ ok: false, error: 'locked', retryAfter: 900 });
   }
 
@@ -466,13 +465,7 @@ app.get('/api/latest', async (req, reply) => {
   if (!takeToken(`latest:${ip}`, 30, 1)) return reply.code(429).send({ error: 'too_many_requests' });
 
   const msg = currentMessage();
-  db.prepare('INSERT INTO views (message_id, ip, ua, result, viewed_at) VALUES (?, ?, ?, ?, ?)').run(
-    msg ? msg.id : null,
-    ip,
-    String(req.headers['user-agent'] || '').slice(0, 300),
-    'success',
-    now(),
-  );
+  recordView(ip, req.headers['user-agent'], 'success', msg ? msg.id : null);
   return publicMessage(msg);
 });
 
@@ -786,7 +779,6 @@ setInterval(() => {
   const t = now();
   db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(t);
   db.prepare('DELETE FROM auth_attempts WHERE at < ?').run(t - 7 * 86400);
-  db.prepare('DELETE FROM blocked_seen WHERE at < ?').run(t - 86400);
   db.prepare("DELETE FROM messages WHERE status = 'expired' AND received_at < ?").run(t - 30 * 86400);
 }, 60 * 60 * 1000).unref();
 
