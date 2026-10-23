@@ -41,6 +41,8 @@
     background: #fff; color: var(--fg); cursor: pointer; white-space: nowrap;
   }
   .btn:hover { background: #f0f2f5; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn:disabled:hover { background: #fff; }
   .btn.primary { background: var(--fg); border-color: var(--fg); color: #fff; }
   .btn.danger { color: var(--bad); }
   .btn.sm { padding: 4px 9px; font-size: 12px; }
@@ -172,12 +174,18 @@
         </div>
         <table>
           <thead>
-            <tr><th style="width:150px">时间</th><th style="width:120px">IP（脱敏）</th><th style="width:180px">归属地</th><th style="width:100px">结果</th><th>UA</th><th style="width:70px">停留</th><th style="width:80px">操作</th></tr>
+            <tr><th style="width:150px">时间</th><th style="width:140px">IP 地址</th><th style="width:180px">归属地</th><th style="width:100px">结果</th><th>UA</th><th style="width:70px">停留</th><th style="width:80px">操作</th></tr>
           </thead>
           <tbody id="views-body"></tbody>
         </table>
-        <div class="row" style="margin-top:12px">
-          <button class="btn sm" id="views-more" type="button">加载更多</button>
+        <div class="row" style="margin-top:12px; justify-content:flex-end">
+          <span class="muted" id="views-page"></span>
+          <button class="btn sm" id="views-first" type="button">首页</button>
+          <button class="btn sm" id="views-prev" type="button">上一页</button>
+          <input id="views-jump" type="number" min="1" placeholder="页码" style="width:76px">
+          <button class="btn sm" id="views-go" type="button">跳转</button>
+          <button class="btn sm" id="views-next" type="button">下一页</button>
+          <button class="btn sm" id="views-last" type="button">末页</button>
         </div>
       </div>
     </section>
@@ -247,7 +255,9 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const gate = $('gate'), app = $('app');
-  let viewsOffset = 0;
+  let viewsPage = 1;
+  let viewsPages = 1;
+  const VIEWS_PAGE_SIZE = 10;
 
   /* ---------- 基础 ---------- */
   const fmt = (sec) => (sec ? new Date(sec * 1000).toLocaleString('zh-CN', { hour12: false }) : '-');
@@ -403,15 +413,20 @@
   });
 
   /* ---------- 访问日志 ---------- */
-  async function loadViews(reset = true) {
-    if (reset) viewsOffset = 0;
+  async function loadViews(page = 1) {
     const ip = $('f-ip').value.trim();
     const result = $('f-result').value;
-    const q = new URLSearchParams({ limit: '50', offset: String(viewsOffset) });
+    const q = new URLSearchParams({
+      limit: String(VIEWS_PAGE_SIZE),
+      offset: String((page - 1) * VIEWS_PAGE_SIZE),
+    });
     if (ip) q.set('ip', ip);
     if (result) q.set('result', result);
     const d = await api(`/admin/api/views?${q}`);
+    viewsPage = page;
+    viewsPages = Math.max(1, Math.ceil(d.total / VIEWS_PAGE_SIZE));
     $('views-total').textContent = `共 ${d.total} 条`;
+    $('views-page').textContent = `第 ${viewsPage} / ${viewsPages} 页`;
     const html = d.items
       .map((v) => {
         const tag = v.result === 'success' ? 'ok' : v.result === 'blocked' ? 'bad' : 'dim';
@@ -423,14 +438,14 @@
           <td><span class="tag ${tag}">${label}</span></td>
           <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
           <td>${dur(v.dwellMs)}</td>
-          <td><button class="btn sm danger" data-block="${esc(v.ipFull)}" type="button">拉黑</button></td>
+          <td><button class="btn sm danger" data-block="${esc(v.ip)}" type="button">拉黑</button></td>
         </tr>`;
       })
       .join('');
-    if (reset) $('views-body').innerHTML = html || '<tr><td colspan="7" class="empty">暂无记录</td></tr>';
-    else $('views-body').insertAdjacentHTML('beforeend', html);
-    viewsOffset += d.items.length;
-    $('views-more').hidden = viewsOffset >= d.total;
+    $('views-body').innerHTML = html || '<tr><td colspan="7" class="empty">暂无记录</td></tr>';
+    $('views-first').disabled = $('views-prev').disabled = page <= 1;
+    $('views-last').disabled = $('views-next').disabled = page >= viewsPages;
+    $('views-jump').max = String(viewsPages);
   }
 
   $('views-body').addEventListener('click', async (e) => {
@@ -445,8 +460,21 @@
     loadRules();
   });
 
-  $('f-apply').addEventListener('click', () => loadViews(true).catch(() => {}));
-  $('views-more').addEventListener('click', () => loadViews(false).catch(() => {}));
+  function jumpViews() {
+    const input = $('views-jump').value;
+    if (!input) return;
+    const page = Math.min(viewsPages, Math.max(1, Math.floor(Number(input)) || 1));
+    $('views-jump').value = '';
+    if (page !== viewsPage) loadViews(page).catch(() => {});
+  }
+
+  $('f-apply').addEventListener('click', () => loadViews(1).catch(() => {}));
+  $('views-first').addEventListener('click', () => loadViews(1).catch(() => {}));
+  $('views-prev').addEventListener('click', () => loadViews(Math.max(1, viewsPage - 1)).catch(() => {}));
+  $('views-next').addEventListener('click', () => loadViews(Math.min(viewsPages, viewsPage + 1)).catch(() => {}));
+  $('views-last').addEventListener('click', () => loadViews(viewsPages).catch(() => {}));
+  $('views-go').addEventListener('click', jumpViews);
+  $('views-jump').addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpViews(); });
 
   /* ---------- IP 规则 ---------- */
   async function loadRules() {
@@ -578,7 +606,7 @@
   /* ---------- 标签切换 ---------- */
   const loaders = {
     overview: loadOverview,
-    views: () => loadViews(true),
+    views: () => loadViews(1),
     rules: loadRules,
     devices: loadDevices,
     messages: loadMessages,

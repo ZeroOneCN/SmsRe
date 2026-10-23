@@ -616,8 +616,7 @@ app.get('/admin/api/views', async (req, reply) => {
     items: rows.map((r) => ({
       id: r.id,
       time: r.viewed_at,
-      ip: maskIp(r.ip),
-      ipFull: r.ip,
+      ip: r.ip,
       location: ipLocation(r.ip),
       ua: r.ua,
       result: r.result,

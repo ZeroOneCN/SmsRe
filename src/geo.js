@@ -17,7 +17,9 @@ export function ipLocation(ip) {
     if (!searcher) searcher = new IP2Region();
     const r = searcher.search(ip);
     if (!r) return '-';
-    const region = [r.country, r.province, r.city].filter(Boolean).join('');
+    const parts = [r.country, r.province, r.city].filter(Boolean);
+    // 省、市同名时去重（如「阿姆斯特丹阿姆斯特丹」）
+    const region = parts.filter((v, i) => parts.indexOf(v) === i).join('');
     if (!region || region === '内网IP') return '内网';
     return r.isp && r.isp !== '内网IP' ? `${region} · ${r.isp}` : region;
   } catch {
