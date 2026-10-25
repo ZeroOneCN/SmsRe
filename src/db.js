@@ -94,6 +94,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_attempts ON auth_attempts(ip, kind, at);
 
+  -- 后台登录尝试明细：成功、密码错误、锁定、限流都会留痕
+  CREATE TABLE IF NOT EXISTS login_logs (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip     TEXT NOT NULL,
+    ua     TEXT,
+    result TEXT NOT NULL,
+    at     INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_login_logs_time ON login_logs(at DESC);
+  CREATE INDEX IF NOT EXISTS idx_login_logs_ip ON login_logs(ip);
+
   CREATE TABLE IF NOT EXISTS audit_log (
     id     INTEGER PRIMARY KEY AUTOINCREMENT,
     actor  TEXT,

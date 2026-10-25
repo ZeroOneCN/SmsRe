@@ -155,6 +155,34 @@ function recordView(ip, ua, result, messageId = null) {
   );
 }
 
+/* ------------------------------ 登录日志 ------------------------------- */
+
+// 锁定与限流会被持续轰炸，同一 IP 60 秒内只记一条，避免登录日志被刷爆
+const LOGIN_DEDUP_RESULTS = new Set(['locked', 'rate_limited']);
+
+/**
+ * 记录一次后台登录尝试。
+ * @param {string} ip 客户端 IP
+ * @param {string} ua User-Agent
+ * @param {string} result 结果：success / bad_pin / locked / rate_limited / invalid
+ * @returns {void}
+ */
+function logLogin(ip, ua, result) {
+  const t = now();
+  if (LOGIN_DEDUP_RESULTS.has(result)) {
+    const recent = db
+      .prepare('SELECT id FROM login_logs WHERE ip = ? AND result = ? AND at > ? LIMIT 1')
+      .get(ip, result, t - 60);
+    if (recent) return;
+  }
+  db.prepare('INSERT INTO login_logs (ip, ua, result, at) VALUES (?, ?, ?, ?)').run(
+    ip,
+    String(ua || '').slice(0, 300),
+    result,
+    t,
+  );
+}
+
 /* --------------------------------- 告警 --------------------------------- */
 
 /**
@@ -431,10 +459,20 @@ app.post('/api/auth', async (req, reply) => {
   const pin = String(req.body?.pin ?? '').trim();
   const ua = req.headers['user-agent'];
 
-  if (!pin || pin.length > 32) return reply.code(400).send({ ok: false, error: 'invalid' });
+  // 登录接口单独限流：避免被脚本高频爆破（每 IP 容量 20，每秒补 0.5）
+  if (!takeToken(`auth:${ip}`, 20, 0.5)) {
+    logLogin(ip, ua, 'rate_limited');
+    return reply.code(429).send({ ok: false, error: 'too_many_requests' });
+  }
+
+  if (!pin || pin.length > 32) {
+    logLogin(ip, ua, 'invalid');
+    return reply.code(400).send({ ok: false, error: 'invalid' });
+  }
 
   if (recentFailures(ip, kind, 900) >= 5) {
     recordView(ip, ua, 'denied');
+    logLogin(ip, ua, 'locked');
     return reply.code(429).send({ ok: false, error: 'locked', retryAfter: 900 });
   }
 
@@ -442,6 +480,7 @@ app.post('/api/auth', async (req, reply) => {
   recordAttempt(ip, kind, okPin);
 
   if (!okPin) {
+    logLogin(ip, ua, 'bad_pin');
     if (recentFailures(ip, kind, 900) === 5) {
       await sendAlert('登录失败告警', `IP ${maskIp(ip)} 连续 5 次输入错误的后台 PIN，已锁定 15 分钟。`);
     }
@@ -449,6 +488,7 @@ app.post('/api/auth', async (req, reply) => {
     return reply.code(401).send({ ok: false, error: 'bad_pin' });
   }
 
+  logLogin(ip, ua, 'success');
   const sid = createSession(kind, ip, ua);
   reply.setCookie(ADMIN_COOKIE, sid, {
     httpOnly: true,
@@ -634,6 +674,50 @@ app.get('/admin/api/views', async (req, reply) => {
   };
 });
 
+/**
+ * 登录日志：后台登录尝试明细（含归属地），并汇总近 15 分钟失败次数用于识别暴力破解。
+ */
+app.get('/admin/api/login-logs', async (req, reply) => {
+  const session = requireAdmin(req, reply);
+  if (!session) return;
+  const limit = Math.min(Math.max(Number(req.query?.limit) || 20, 1), 200);
+  const offset = Math.max(Number(req.query?.offset) || 0, 0);
+  const ip = String(req.query?.ip || '').trim();
+  const result = String(req.query?.result || '').trim();
+
+  const where = [];
+  const params = [];
+  if (ip) {
+    where.push('ip LIKE ?');
+    params.push(`%${ip}%`);
+  }
+  if (['success', 'bad_pin', 'locked', 'rate_limited', 'invalid'].includes(result)) {
+    where.push('result = ?');
+    params.push(result);
+  }
+  const sqlWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const total = db.prepare(`SELECT COUNT(*) AS c FROM login_logs ${sqlWhere}`).get(...params);
+  const failed15m = db
+    .prepare("SELECT COUNT(*) AS c FROM login_logs WHERE result IN ('bad_pin', 'locked', 'rate_limited') AND at > ?")
+    .get(now() - 900);
+
+  return {
+    total: Number(total?.c || 0),
+    failed15m: Number(failed15m?.c || 0),
+    items: db
+      .prepare(`SELECT * FROM login_logs ${sqlWhere} ORDER BY id DESC LIMIT ? OFFSET ?`)
+      .all(...params, limit, offset)
+      .map((r) => ({
+        id: r.id,
+        time: r.at,
+        ip: r.ip,
+        location: ipLocation(r.ip),
+        ua: r.ua,
+        result: r.result,
+      })),
+  };
+});
+
 app.get('/admin/api/ip-rules', async (req, reply) => {
   const session = requireAdmin(req, reply);
   if (!session) return;
@@ -805,6 +889,7 @@ setInterval(() => {
   const t = now();
   db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(t);
   db.prepare('DELETE FROM auth_attempts WHERE at < ?').run(t - 7 * 86400);
+  db.prepare('DELETE FROM login_logs WHERE at < ?').run(t - 90 * 86400);
   db.prepare("DELETE FROM messages WHERE status = 'expired' AND received_at < ?").run(t - 30 * 86400);
 }, 60 * 60 * 1000).unref();
 

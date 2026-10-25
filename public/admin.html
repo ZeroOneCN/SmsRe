@@ -141,6 +141,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="overview" type="button">概览</button>
       <button class="tab" data-tab="views" type="button">访问日志</button>
+      <button class="tab" data-tab="logins" type="button">登录日志</button>
       <button class="tab" data-tab="rules" type="button">IP 规则</button>
       <button class="tab" data-tab="devices" type="button">设备</button>
       <button class="tab" data-tab="messages" type="button">短信</button>
@@ -201,6 +202,41 @@
           <button class="btn sm" id="views-go" type="button">跳转</button>
           <button class="btn sm" id="views-next" type="button">下一页</button>
           <button class="btn sm" id="views-last" type="button">末页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 登录日志 -->
+    <section id="tab-logins" hidden>
+      <div class="panel">
+        <div class="row" style="margin-bottom:12px">
+          <input id="login-ip" placeholder="按 IP 筛选" style="width:200px">
+          <select id="login-result" style="width:140px">
+            <option value="">全部结果</option>
+            <option value="success">登录成功</option>
+            <option value="bad_pin">密码错误</option>
+            <option value="locked">已锁定</option>
+            <option value="rate_limited">请求过频</option>
+            <option value="invalid">参数异常</option>
+          </select>
+          <button class="btn sm" id="login-apply" type="button">查询</button>
+          <span class="spacer"></span>
+          <span class="muted" id="login-total"></span>
+        </div>
+        <table>
+          <thead>
+            <tr><th style="width:150px">时间</th><th style="width:140px">IP 地址</th><th style="width:180px">归属地</th><th style="width:100px">结果</th><th>UA</th><th style="width:80px">操作</th></tr>
+          </thead>
+          <tbody id="login-body"></tbody>
+        </table>
+        <div class="row" style="margin-top:12px; justify-content:flex-end">
+          <span class="muted" id="login-page"></span>
+          <button class="btn sm" id="login-first" type="button">首页</button>
+          <button class="btn sm" id="login-prev" type="button">上一页</button>
+          <input id="login-jump" type="number" min="1" placeholder="页码" style="width:76px">
+          <button class="btn sm" id="login-go" type="button">跳转</button>
+          <button class="btn sm" id="login-next" type="button">下一页</button>
+          <button class="btn sm" id="login-last" type="button">末页</button>
         </div>
       </div>
     </section>
@@ -515,6 +551,80 @@
   $('views-go').addEventListener('click', jumpViews);
   $('views-jump').addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpViews(); });
 
+  /* ---------- 登录日志 ---------- */
+  const LOGIN_RESULTS = {
+    success: ['登录成功', 'ok'],
+    bad_pin: ['密码错误', 'bad'],
+    locked: ['已锁定', 'bad'],
+    rate_limited: ['请求过频', 'bad'],
+    invalid: ['参数异常', 'dim'],
+  };
+  let loginPage = 1;
+  let loginPages = 1;
+
+  async function loadLogins(page = 1) {
+    const ip = $('login-ip').value.trim();
+    const result = $('login-result').value;
+    const q = new URLSearchParams({
+      limit: String(VIEWS_PAGE_SIZE),
+      offset: String((page - 1) * VIEWS_PAGE_SIZE),
+    });
+    if (ip) q.set('ip', ip);
+    if (result) q.set('result', result);
+    const d = await api(`/admin/api/login-logs?${q}`);
+    loginPage = page;
+    loginPages = Math.max(1, Math.ceil(d.total / VIEWS_PAGE_SIZE));
+    $('login-total').innerHTML = d.failed15m
+      ? `共 ${d.total} 条 · <span style="color:var(--bad)">近 15 分钟失败 ${d.failed15m} 次</span>`
+      : `共 ${d.total} 条`;
+    $('login-page').textContent = `第 ${loginPage} / ${loginPages} 页`;
+    const html = d.items
+      .map((v) => {
+        const meta = LOGIN_RESULTS[v.result] || [v.result, 'dim'];
+        return `<tr>
+          <td>${fmt(v.time)}</td>
+          <td class="mono">${esc(v.ip)}</td>
+          <td class="clip" title="${esc(v.location)}">${esc(v.location)}</td>
+          <td><span class="tag ${meta[1]}">${meta[0]}</span></td>
+          <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
+          <td><button class="btn sm danger" data-block="${esc(v.ip)}" type="button">拉黑</button></td>
+        </tr>`;
+      })
+      .join('');
+    $('login-body').innerHTML = html || '<tr><td colspan="6" class="empty">暂无记录</td></tr>';
+    $('login-first').disabled = $('login-prev').disabled = page <= 1;
+    $('login-last').disabled = $('login-next').disabled = page >= loginPages;
+    $('login-jump').max = String(loginPages);
+  }
+
+  $('login-body').addEventListener('click', async (e) => {
+    const ip = e.target.dataset.block;
+    if (!ip) return;
+    if (!confirm(`确认拉黑 IP ${ip}？`)) return;
+    await api('/admin/api/ip-rules', {
+      method: 'POST',
+      body: JSON.stringify({ cidr: ip, action: 'block', note: '来自登录日志', ttlHours: 0 }),
+    });
+    alert('已拉黑');
+    loadRules();
+  });
+
+  function jumpLogins() {
+    const input = $('login-jump').value;
+    if (!input) return;
+    const page = Math.min(loginPages, Math.max(1, Math.floor(Number(input)) || 1));
+    $('login-jump').value = '';
+    if (page !== loginPage) loadLogins(page).catch(() => {});
+  }
+
+  $('login-apply').addEventListener('click', () => loadLogins(1).catch(() => {}));
+  $('login-first').addEventListener('click', () => loadLogins(1).catch(() => {}));
+  $('login-prev').addEventListener('click', () => loadLogins(Math.max(1, loginPage - 1)).catch(() => {}));
+  $('login-next').addEventListener('click', () => loadLogins(Math.min(loginPages, loginPage + 1)).catch(() => {}));
+  $('login-last').addEventListener('click', () => loadLogins(loginPages).catch(() => {}));
+  $('login-go').addEventListener('click', jumpLogins);
+  $('login-jump').addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpLogins(); });
+
   /* ---------- IP 规则 ---------- */
   async function loadRules() {
     const d = await api('/admin/api/ip-rules');
@@ -666,6 +776,7 @@
   const loaders = {
     overview: loadOverview,
     views: () => loadViews(1),
+    logins: () => loadLogins(1),
     rules: loadRules,
     devices: loadDevices,
     messages: loadMessages,
@@ -677,7 +788,7 @@
       document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       currentTab = btn.dataset.tab;
-      ['overview', 'views', 'rules', 'devices', 'messages'].forEach((id) => {
+      ['overview', 'views', 'logins', 'rules', 'devices', 'messages'].forEach((id) => {
         $(`tab-${id}`).hidden = id !== currentTab;
       });
       loaders[currentTab]().catch(() => {});
