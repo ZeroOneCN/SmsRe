@@ -153,10 +153,13 @@
   .card .v small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
 
   .dash { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .85fr); gap: 14px; margin-top: 14px; align-items: start; }
+  .recent-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
+  .t-recent { min-width: 0; }
+  .t-recent th, .t-recent td { padding: 7px 9px; }
   .stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 15px 16px; min-width: 0; }
   .panel + .panel { margin-top: 14px; }
-  .dash .panel { margin-top: 0; }
+  .dash .panel, .recent-grid .panel { margin-top: 0; }
   .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; min-width: 0; }
   .panel-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
   .panel-head .sub { color: var(--muted); font-size: 12px; }
@@ -260,7 +263,7 @@
   }
 
   @media (max-width: 1100px) {
-    .dash { grid-template-columns: minmax(0, 1fr); }
+    .dash, .recent-grid { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 900px) {
     .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
@@ -402,6 +405,34 @@
               <button class="btn" id="pin-save" type="button">更新</button>
             </div>
             <div class="muted" id="pin-msg" style="margin-top:8px;min-height:16px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="recent-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>最近访问</h2>
+            <span class="spacer"></span>
+            <button class="btn sm" data-goto="views" type="button">查看全部</button>
+          </div>
+          <div class="table-wrap">
+            <table class="t-recent">
+              <thead><tr><th class="w-time">时间</th><th>IP</th><th class="w-result">结果</th></tr></thead>
+              <tbody id="overview-views-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>最近短信</h2>
+            <span class="spacer"></span>
+            <button class="btn sm" data-goto="messages" type="button">查看全部</button>
+          </div>
+          <div class="table-wrap">
+            <table class="t-recent">
+              <thead><tr><th class="w-time">时间</th><th>发件人</th><th class="w-code">验证码</th></tr></thead>
+              <tbody id="overview-messages-body"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -805,7 +836,12 @@
     curMessage = d.current && d.current.code ? d.current : null;
     renderCurrent();
 
-    const stats = await api('/admin/api/stats?days=7');
+    const [stats, recentViews, recentMessages] = await Promise.all([
+      api('/admin/api/stats?days=7'),
+      api('/admin/api/views?limit=5&offset=0'),
+      api('/admin/api/messages?limit=5'),
+    ]);
+
     const rows = stats.rows || [];
     const max = Math.max(1, ...rows.map((r) => Number(r.views)));
     $('bars').innerHTML = rows.length
@@ -819,6 +855,25 @@
           )
           .join('')
       : '<div class="empty">暂无访问记录</div>';
+
+    $('overview-views-body').innerHTML = (recentViews.items || [])
+      .map((v) => {
+        const meta = VIEW_RESULTS[v.result] || [v.result, 'dim'];
+        return `<tr>
+          <td class="nowrap">${fmt(v.time)}</td>
+          <td class="mono clip" title="${esc(v.ip)}">${esc(v.ip)}</td>
+          <td><span class="tag ${meta[1]}">${meta[0]}</span></td>
+        </tr>`;
+      })
+      .join('') || '<tr><td colspan="3" class="empty">暂无访问记录</td></tr>';
+
+    $('overview-messages-body').innerHTML = (recentMessages.items || [])
+      .map((m) => `<tr>
+        <td class="nowrap">${fmt(m.receivedAt)}</td>
+        <td class="clip" title="${esc(m.sender || '')}">${esc(m.sender || '-')}</td>
+        <td class="mono">${esc(m.code || '-')}</td>
+      </tr>`)
+      .join('') || '<tr><td colspan="3" class="empty">暂无短信</td></tr>';
   }
 
   $('pin-save').addEventListener('click', async () => {
@@ -1180,6 +1235,13 @@
       $('page-sub').textContent = meta[1];
       document.querySelector('.main').scrollTop = 0;
       loaders[currentTab]().catch(() => {});
+    });
+  });
+
+  document.querySelectorAll('[data-goto]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = document.querySelector(`.tab[data-tab="${btn.dataset.goto}"]`);
+      if (target) target.click();
     });
   });
 
