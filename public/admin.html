@@ -94,6 +94,22 @@
   .switch input:checked + .track { background: var(--bad); }
   .switch input:checked + .track::after { transform: translateX(17px); }
   .err { color: var(--bad); font-size: 12px; min-height: 18px; margin-top: 8px; }
+  /* 确认弹窗 */
+  .confirm { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; }
+  .confirm-mask { position: absolute; inset: 0; background: rgba(14, 19, 25, .48); }
+  .confirm-card {
+    position: relative; width: min(400px, 100%); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+  }
+  .confirm-card h2 { margin: 0 0 8px; font-size: 15px; }
+  .confirm-card .msg { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; white-space: pre-line; }
+  .confirm-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  @media (max-width: 420px) {
+    .confirm { padding: 14px; }
+    .confirm-card { padding: 16px; }
+    .confirm-foot .btn { flex: 1; justify-content: center; }
+  }
 
   /* 外壳：左侧菜单 + 主区唯一滚动条 */
   .shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); height: 100vh; }
@@ -286,6 +302,18 @@
     <div class="err" id="gate-err"></div>
     <button class="btn primary" type="submit" style="width:100%;margin-top:6px">登录</button>
   </form>
+</div>
+
+<div id="confirm" class="confirm" hidden>
+  <div class="confirm-mask"></div>
+  <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-msg">
+    <h2 id="confirm-title">确认操作</h2>
+    <p class="msg" id="confirm-msg"></p>
+    <div class="confirm-foot">
+      <button class="btn" id="confirm-cancel" type="button">取消</button>
+      <button class="btn danger" id="confirm-ok" type="button">确认</button>
+    </div>
+  </div>
 </div>
 
 <div id="app" class="shell" hidden>
@@ -570,6 +598,59 @@
   const gate = $('gate'), app = $('app');
   let viewsPage = 1;
   let viewsPages = 1;
+
+  /* ---------- 确认弹窗 ---------- */
+  let confirmResolve = null;
+  let confirmReturnFocus = null;
+
+  // 打开确认框，返回 Promise<boolean>；Esc / 取消 / 遮罩返回 false，确认返回 true
+  function askConfirm({ title = '确认操作', message = '', okText = '确认', danger = true } = {}) {
+    $('confirm-title').textContent = title;
+    $('confirm-msg').textContent = message;
+    $('confirm-ok').textContent = okText;
+    $('confirm-ok').className = `btn ${danger ? 'danger' : 'primary'}`;
+    confirmReturnFocus = document.activeElement;
+    $('confirm').hidden = false;
+    setTimeout(() => $('confirm-ok').focus(), 0);
+    return new Promise((resolve) => {
+      confirmResolve = resolve;
+    });
+  }
+
+  // 关闭确认框并把结果交还给 Promise，焦点回到触发按钮
+  function settleConfirm(ok) {
+    if ($('confirm').hidden) return;
+    $('confirm').hidden = true;
+    const resolve = confirmResolve;
+    confirmResolve = null;
+    if (confirmReturnFocus && confirmReturnFocus.focus) confirmReturnFocus.focus();
+    confirmReturnFocus = null;
+    if (resolve) resolve(ok);
+  }
+
+  $('confirm-ok').addEventListener('click', () => settleConfirm(true));
+  $('confirm-cancel').addEventListener('click', () => settleConfirm(false));
+  $('confirm').querySelector('.confirm-mask').addEventListener('click', () => settleConfirm(false));
+  document.addEventListener('keydown', (e) => {
+    if ($('confirm').hidden) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      settleConfirm(false);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      settleConfirm(document.activeElement !== $('confirm-cancel'));
+    } else if (e.key === 'Tab') {
+      // 两个按钮之间循环，避免焦点跑到背后的页面
+      const onCancel = document.activeElement === $('confirm-cancel');
+      if (e.shiftKey && onCancel) {
+        e.preventDefault();
+        $('confirm-ok').focus();
+      } else if (!e.shiftKey && !onCancel) {
+        e.preventDefault();
+        $('confirm-cancel').focus();
+      }
+    }
+  });
   const VIEWS_PAGE_SIZE = 10;
   // 访问结果 → [展示文案, 标签样式]
   const VIEW_RESULTS = {
@@ -799,7 +880,11 @@
   $('views-body').addEventListener('click', async (e) => {
     const ip = e.target.closest('button')?.dataset.block;
     if (!ip) return;
-    if (!confirm(`确认拉黑 IP ${ip}？`)) return;
+    if (!(await askConfirm({
+      title: '拉黑该 IP',
+      message: `确认拉黑 IP ${ip}？拉黑后该 IP 将无法访问前台页面。`,
+      okText: '拉黑',
+    }))) return;
     await api('/admin/api/ip-rules', {
       method: 'POST',
       body: JSON.stringify({ cidr: ip, action: 'block', note: '来自访问日志', ttlHours: 0 }),
@@ -873,7 +958,11 @@
   $('login-body').addEventListener('click', async (e) => {
     const ip = e.target.closest('button')?.dataset.block;
     if (!ip) return;
-    if (!confirm(`确认拉黑 IP ${ip}？`)) return;
+    if (!(await askConfirm({
+      title: '拉黑该 IP',
+      message: `确认拉黑 IP ${ip}？拉黑后该 IP 将无法访问前台页面。`,
+      okText: '拉黑',
+    }))) return;
     await api('/admin/api/ip-rules', {
       method: 'POST',
       body: JSON.stringify({ cidr: ip, action: 'block', note: '来自登录日志', ttlHours: 0 }),
@@ -937,7 +1026,12 @@
 
   $('rules-body').addEventListener('click', async (e) => {
     const id = e.target.closest('button')?.dataset.del;
-    if (!id || !confirm('确认删除该规则？')) return;
+    if (!id) return;
+    if (!(await askConfirm({
+      title: '删除规则',
+      message: '删除后该 IP 规则立即失效，确定删除？',
+      okText: '删除',
+    }))) return;
     await api(`/admin/api/ip-rules/${id}`, { method: 'DELETE' });
     loadRules();
   });
@@ -1011,7 +1105,13 @@
     if (!btn) return;
     if (btn.dataset.copyUrl) await copyTip(btn, btn.dataset.copyUrl);
     if (btn.dataset.copy) await copyTip(btn, btn.dataset.copy);
-    if (btn.dataset.rotate && confirm('轮换后旧 Token 立即失效，手机端需要同步修改。继续？')) {
+    if (btn.dataset.rotate) {
+      const ok = await askConfirm({
+        title: '轮换 Token',
+        message: '轮换后旧 Token 立即失效，手机端需要同步修改转发地址。',
+        okText: '确认轮换',
+      });
+      if (!ok) return;
       const d = await api(`/admin/api/devices/${btn.dataset.rotate}/rotate`, { method: 'POST' });
       alert(`新 Webhook 地址：${location.origin}/h/${d.token}\n新 Token：${d.token}`);
       loadDevices();
@@ -1047,7 +1147,11 @@
   });
 
   $('msg-clear').addEventListener('click', async () => {
-    if (!confirm('清空全部短信记录？此操作不可恢复。')) return;
+    if (!(await askConfirm({
+      title: '清空短信',
+      message: '清空全部短信记录？此操作不可恢复。',
+      okText: '清空',
+    }))) return;
     await api('/admin/api/messages', { method: 'DELETE' });
     loadMessages();
   });
