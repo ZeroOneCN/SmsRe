@@ -7,114 +7,273 @@
 <title>SmsForwarder · 后台</title>
 <style>
   :root {
-    --bg: #f5f6f8;
+    --bg: #eef0f3;
     --panel: #fff;
-    --fg: #1c2128;
-    --muted: #6b7480;
-    --line: #e3e6eb;
-    --ok: #1f8a4c;
-    --bad: #c0392b;
-    --blue: #2b6cb0;
+    --panel-soft: #f6f7f9;
+    --fg: #1b2430;
+    --muted: #657080;
+    --line: #dde2e9;
+    --line-strong: #c7ced8;
+    --ok: #177a45;
+    --ok-bg: #e9f7ef;
+    --ok-line: #b9e3c9;
+    --bad: #bd3b2f;
+    --bad-bg: #fceeec;
+    --bad-line: #f0c6c0;
+    --blue: #245e9c;
+    --blue-bg: #eaf1f9;
+    --shadow: 0 1px 2px rgba(20, 30, 45, .05);
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
+    overflow: hidden;
     background: var(--bg);
     color: var(--fg);
     font: 14px/1.5 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
   [hidden] { display: none !important; }
   a { color: var(--blue); }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  svg { display: block; }
 
   /* 登录 */
-  .gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-  .gate form { width: 300px; background: var(--panel); padding: 28px; border: 1px solid var(--line); border-radius: 10px; }
+  .gate { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .gate form {
+    width: min(320px, 100%); background: var(--panel); padding: 24px;
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+  }
   .gate h1 { margin: 0 0 18px; font-size: 17px; }
-  input, select, button { font: inherit; }
+  .gate .sub { margin: -12px 0 16px; color: var(--muted); font-size: 12px; }
+  input, select, button, textarea { font: inherit; }
   input, select {
-    width: 100%; padding: 9px 10px; border: 1px solid var(--line);
-    border-radius: 6px; background: #fff; color: var(--fg); outline: none;
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--panel); color: var(--fg); outline: none;
   }
-  input:focus, select:focus { border-color: #b9c2ce; }
+  input:focus, select:focus { border-color: var(--line-strong); }
+  input::placeholder { color: var(--muted); }
   .btn {
-    padding: 9px 14px; border: 1px solid var(--line); border-radius: 6px;
-    background: #fff; color: var(--fg); cursor: pointer; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel); color: var(--fg); cursor: pointer; white-space: nowrap;
+    font-size: 13px;
   }
-  .btn:hover { background: #f0f2f5; }
-  .btn:disabled { opacity: .45; cursor: default; }
-  .btn:disabled:hover { background: #fff; }
-  .btn.primary { background: var(--fg); border-color: var(--fg); color: #fff; }
-  .btn.danger { color: var(--bad); }
-  .btn.sm { padding: 4px 9px; font-size: 12px; }
+  .btn svg { width: 14px; height: 14px; flex: none; }
+  .btn:hover { background: var(--panel-soft); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn:disabled:hover { background: var(--panel); }
+  .btn.primary { background: var(--fg); border-color: var(--fg); color: var(--panel); }
+  .btn.primary:hover { background: var(--fg); opacity: .9; }
+  .btn.danger { color: var(--bad); border-color: var(--bad-line); background: var(--bad-bg); }
+  .btn.danger:hover { background: var(--bad-bg); opacity: .9; }
+  .btn.sm { padding: 4px 8px; font-size: 12px; }
+  .icon-btn {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; flex: none; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel); color: var(--muted); cursor: pointer; padding: 0;
+  }
+  .icon-btn svg { width: 15px; height: 15px; }
+  .icon-btn:hover { color: var(--fg); background: var(--panel-soft); }
+  .icon-btn.danger { color: var(--bad); border-color: var(--bad-line); }
+  .icon-btn.danger:hover { background: var(--bad-bg); }
+  .icon-btn.ok { color: var(--ok); border-color: var(--ok-line); background: var(--ok-bg); }
   /* 开关 */
   .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
   .switch input { display: none; }
   .switch .track {
-    width: 40px; height: 22px; border-radius: 11px; background: #d6dbe3;
-    position: relative; transition: background .15s ease;
+    width: 38px; height: 21px; border-radius: 11px; background: var(--line-strong);
+    position: relative; flex: none;
   }
   .switch .track::after {
-    content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
-    border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
-    transition: transform .15s ease;
+    content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+    border-radius: 50%; background: var(--panel); box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+    transition: transform .12s ease;
   }
   .switch input:checked + .track { background: var(--bad); }
-  .switch input:checked + .track::after { transform: translateX(18px); }
-  .err { color: var(--bad); font-size: 13px; min-height: 20px; margin-top: 10px; }
+  .switch input:checked + .track::after { transform: translateX(17px); }
+  .err { color: var(--bad); font-size: 12px; min-height: 18px; margin-top: 8px; }
 
-  /* 布局 */
-  .top {
-    display: flex; align-items: center; gap: 14px;
-    padding: 0 20px; height: 52px; background: var(--panel);
-    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
+  /* 外壳：左侧菜单 + 主区唯一滚动条 */
+  .shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); height: 100vh; }
+  .side {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--panel); border-right: 1px solid var(--line);
   }
-  .brand { font-weight: 600; letter-spacing: .02em; }
-  .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: #c9ced6; }
+  .side-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: baseline; gap: 6px; font-weight: 650; letter-spacing: .01em; font-size: 15px; }
+  .brand small { font-size: 11px; font-weight: 400; color: var(--muted); }
+  .status { margin-top: 7px; font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .status span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); flex: none; }
   .dot.on { background: var(--ok); }
-  .spacer { flex: 1; }
-
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 18px 20px 60px; }
-  .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .nav { flex: 1; overflow-y: auto; padding: 8px; }
+  .nav-label { padding: 10px 9px 5px; font-size: 11px; color: var(--muted); letter-spacing: .04em; }
   .tab {
-    padding: 9px 14px; border: 0; background: none; cursor: pointer;
-    color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 10px; margin-bottom: 2px; border: 1px solid transparent; border-radius: 7px;
+    background: none; color: var(--muted); cursor: pointer; text-align: left; font-size: 13.5px;
   }
-  .tab.active { color: var(--fg); border-bottom-color: var(--fg); font-weight: 600; }
+  .tab svg { width: 16px; height: 16px; flex: none; }
+  .tab:hover { background: var(--panel-soft); color: var(--fg); }
+  .tab.active { background: var(--panel-soft); border-color: var(--line); color: var(--fg); font-weight: 600; }
+  .side-foot { padding: 11px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; }
-  .card .k { font-size: 12px; color: var(--muted); }
-  .card .v { font-size: 26px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .work { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex: none;
+    padding: 13px 22px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .topbar h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: .01em; }
+  .topbar .page-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+  .spacer { flex: 1; }
+  .main { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 18px 22px 40px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+  .card .k { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .v { font-size: 25px; font-weight: 650; margin-top: 3px; font-variant-numeric: tabular-nums; line-height: 1.15; }
   .card .v small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
 
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 16px; margin-top: 16px; }
-  .panel h2 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .row > .grow { flex: 1; min-width: 120px; }
+  .dash { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .85fr); gap: 14px; margin-top: 14px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 15px 16px; min-width: 0; }
+  .panel + .panel { margin-top: 14px; }
+  .dash .panel { margin-top: 0; }
+  .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; min-width: 0; }
+  .panel-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .panel-head .sub { color: var(--muted); font-size: 12px; }
+  .panel-head .spacer { flex: 1; }
   .muted { color: var(--muted); font-size: 12px; }
+  .row { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; min-width: 0; }
+  .row > .grow { flex: 1; min-width: 140px; }
 
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; background: #fafbfc; }
-  tbody tr:hover { background: #fafbfc; }
+  /* 表单与问号气泡说明 */
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .hint {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border: 1px solid var(--line-strong); border-radius: 50%;
+    color: var(--muted); font-size: 11px; line-height: 1; cursor: help; flex: none;
+  }
+  .hint:focus { outline: none; }
+  .hint .bubble {
+    display: none; position: absolute; top: calc(100% + 7px); left: -6px;
+    width: max-content; max-width: 220px; padding: 7px 9px; border-radius: 6px;
+    background: var(--fg); color: var(--panel); font-size: 11.5px; line-height: 1.5;
+    white-space: normal; z-index: 30; box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+  }
+  .hint:hover .bubble, .hint:focus .bubble, .hint:focus-within .bubble { display: block; }
+  .w-200 { width: 200px; } .w-180 { width: 180px; } .w-160 { width: 160px; }
+  .w-130 { width: 130px; } .w-120 { width: 120px; } .w-76 { width: 76px; }
+
+  /* 表格：内部横向滚动 + 首列/操作列吸附 */
+  .table-wrap { border: 1px solid var(--line); border-radius: 8px; overflow: auto; background: var(--panel); }
+  .table-wrap table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td {
+    padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px;
+    text-align: left; vertical-align: middle; overflow: hidden;
+  }
+  th {
+    color: var(--muted); font-weight: 500; font-size: 11.5px; background: var(--panel-soft);
+    white-space: nowrap; letter-spacing: .01em;
+  }
+  tbody tr:hover { background: var(--panel-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
   td.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
-  .clip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .clip.expanded { max-width: 680px; white-space: normal; word-break: break-all; cursor: pointer; }
+  .clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clip.expanded { white-space: normal; word-break: break-all; }
   .msg-text { cursor: pointer; }
-  td.actions { white-space: nowrap; }
-  td.actions .btn { margin-left: 6px; }
-  td.actions .btn:first-child { margin-left: 0; }
-  .tag { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
-  .tag.ok { color: var(--ok); border-color: #bfe3cd; background: #f2fbf5; }
-  .tag.bad { color: var(--bad); border-color: #f0c8c3; background: #fdf4f3; }
-  .tag.dim { color: #8a929c; background: #f4f5f7; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .nowrap { white-space: nowrap; }
+  td.actions { white-space: nowrap; padding-top: 6px; padding-bottom: 6px; }
+  .actions .btn-row { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+  .sticky-l { position: sticky; left: 0; z-index: 2; background: var(--panel); box-shadow: 1px 0 0 var(--line); }
+  th.sticky-l { background: var(--panel-soft); z-index: 3; }
+  .actions, th.actions { position: sticky; right: 0; z-index: 2; background: var(--panel); box-shadow: -1px 0 0 var(--line); }
+  th.actions { background: var(--panel-soft); z-index: 3; }
+  .t-views { min-width: 940px; } .t-logins { min-width: 900px; }
+  .t-rules { min-width: 820px; } .t-devices { min-width: 1000px; } .t-messages { min-width: 900px; }
+  .w-time { width: 148px; } .w-ip { width: 132px; } .w-loc { width: 150px; }
+  .w-result { width: 100px; } .w-dwell { width: 68px; }
+  .w-act-1 { width: 56px; } .w-act-4 { width: 158px; }
+  .w-msg-id { width: 56px; } .w-status { width: 72px; }
+  .w-sender { width: 150px; } .w-code { width: 92px; } .w-state { width: 88px; }
+  .table-hint { display: none; margin-bottom: 8px; color: var(--muted); font-size: 11.5px; }
 
-  .bars { display: flex; flex-direction: column; gap: 6px; }
-  .bar-row { display: grid; grid-template-columns: 90px 1fr 44px; gap: 10px; align-items: center; font-size: 12px; }
-  .bar-track { height: 8px; background: #eef0f3; border-radius: 4px; overflow: hidden; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 11px; line-height: 1.6; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.ok { color: var(--ok); border-color: var(--ok-line); background: var(--ok-bg); }
+  .tag.bad { color: var(--bad); border-color: var(--bad-line); background: var(--bad-bg); }
+  .tag.dim { color: var(--muted); background: var(--panel-soft); }
+
+  .bars { display: flex; flex-direction: column; gap: 5px; }
+  .bar-row { display: grid; grid-template-columns: 86px minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 12px; }
+  .bar-row .num { color: var(--fg); }
+  .bar-track { height: 7px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .bar-fill { height: 100%; background: #8fa3bd; border-radius: 4px; }
-  .empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+  .empty { padding: 26px 12px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  .pager { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; }
+  .pager .page-info { margin-right: 4px; }
+  .page-jump { width: 64px; text-align: center; }
+  .cur-code { font: 600 30px/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .06em; }
+  .cur-meta { color: var(--muted); font-size: 12px; }
+  .cur-meta strong { color: var(--bad); font-size: 15px; font-variant-numeric: tabular-nums; margin-left: 2px; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1318;
+      --panel: #161b22;
+      --panel-soft: #1c232c;
+      --fg: #e6ebf2;
+      --muted: #96a2b1;
+      --line: #28303a;
+      --line-strong: #3b4552;
+      --ok: #5cc98a;
+      --ok-bg: #12301f;
+      --ok-line: #24583a;
+      --bad: #ff8378;
+      --bad-bg: #341b19;
+      --bad-line: #5c2b26;
+      --blue: #7cb3e8;
+      --blue-bg: #152736;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    }
+    .bar-fill { background: #5b7ea1; }
+  }
+
+  @media (max-width: 1100px) {
+    .dash { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .side { border-right: 0; border-bottom: 1px solid var(--line); }
+    .side-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 6px; border-bottom: 0; }
+    .side-head > div { min-width: 0; }
+    .status { margin-top: 2px; }
+    .nav { display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; padding: 4px 10px 10px; flex: none; }
+    .nav-label { display: none; }
+    .tab { width: auto; flex: none; margin-bottom: 0; padding: 6px 9px; font-size: 12.5px; white-space: nowrap; }
+    .tab svg { width: 15px; height: 15px; }
+    .side-foot { display: none; }
+    .topbar { padding: 10px 14px; }
+    .topbar h1 { font-size: 15px; }
+    .topbar .page-sub { display: none; }
+    .main { padding: 12px 12px 28px; }
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .table-hint { display: block; }
+    .sticky-l { background: var(--panel); }
+    /* 设备名称列较宽，窄屏只固定操作列，避免与操作列互相遮挡 */
+    .t-devices .sticky-l { position: static; box-shadow: none; }
+    .empty { text-align: left; }
+  }
+  @media (max-width: 420px) {
+    .card .v { font-size: 21px; }
+    .topbar .page-sub { display: none; }
+    .w-200, .w-180 { width: 100%; }
+    .pager { justify-content: flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -122,62 +281,110 @@
 <div id="gate" class="gate" hidden>
   <form id="gate-form">
     <h1>后台登录</h1>
+    <div class="sub">仅用于保护管理页，前台大屏无需登录</div>
     <input id="gate-pin" type="password" inputmode="numeric" maxlength="8" placeholder="管理 PIN" autocomplete="current-password">
     <div class="err" id="gate-err"></div>
     <button class="btn primary" type="submit" style="width:100%;margin-top:6px">登录</button>
   </form>
 </div>
 
-<div id="app" hidden>
-  <div class="top">
-    <span class="brand">SmsForwarder 后台</span>
-    <span class="status"><span id="dev-dot" class="dot"></span><span id="dev-text">设备状态加载中</span></span>
-    <span class="spacer"></span>
-    <button class="btn sm" id="refresh-btn" type="button">刷新</button>
-    <button class="btn sm" id="logout-btn" type="button">退出</button>
-  </div>
-
-  <div class="wrap">
-    <div class="tabs">
-      <button class="tab active" data-tab="overview" type="button">概览</button>
-      <button class="tab" data-tab="views" type="button">访问日志</button>
-      <button class="tab" data-tab="logins" type="button">登录日志</button>
-      <button class="tab" data-tab="rules" type="button">IP 规则</button>
-      <button class="tab" data-tab="devices" type="button">设备</button>
-      <button class="tab" data-tab="messages" type="button">短信</button>
+<div id="app" class="shell" hidden>
+  <aside class="side">
+    <div class="side-head">
+      <div>
+        <div class="brand">SmsForwarder <small>后台</small></div>
+        <div class="status"><span id="dev-dot" class="dot"></span><span id="dev-text">设备状态加载中</span></div>
+      </div>
     </div>
+    <nav class="nav" aria-label="后台导航">
+      <div class="nav-label">监控</div>
+      <button class="tab active" data-tab="overview" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        概览
+      </button>
+      <button class="tab" data-tab="views" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+        访问日志
+      </button>
+      <button class="tab" data-tab="logins" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>
+        登录日志
+      </button>
+      <div class="nav-label">管理</div>
+      <button class="tab" data-tab="rules" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 3v6c0 4.2-2.8 7.5-7 9-4.2-1.5-7-4.8-7-9V6l7-3Z"/></svg>
+        IP 规则
+      </button>
+      <button class="tab" data-tab="devices" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M10.5 5.5h3"/></svg>
+        设备
+      </button>
+      <button class="tab" data-tab="messages" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 4h16v12H8l-4 4V4Z"/></svg>
+        短信
+      </button>
+    </nav>
+    <div class="side-foot">本地审计 · 全站 no-store<br>数据仅存于本机 SQLite</div>
+  </aside>
 
+  <div class="work">
+    <header class="topbar">
+      <div>
+        <h1 id="page-title">概览</h1>
+        <div class="page-sub" id="page-sub">今日运行状态与近 7 天访问趋势</div>
+      </div>
+      <span class="spacer"></span>
+      <button class="icon-btn" id="refresh-btn" type="button" title="刷新当前页" aria-label="刷新当前页">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
+      </button>
+      <button class="icon-btn" id="logout-btn" type="button" title="退出登录" aria-label="退出登录">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 4H5v16h4"/><path d="M15 8l4 4-4 4"/><path d="M19 12H9"/></svg>
+      </button>
+    </header>
+
+    <main class="main">
     <!-- 概览 -->
-    <section id="tab-overview">
+    <section class="page" id="tab-overview">
       <div class="cards" id="cards"></div>
-      <div class="panel">
-        <h2>近 7 天访问</h2>
-        <div class="bars" id="bars"></div>
-      </div>
-      <div class="panel">
-        <h2>当前验证码</h2>
-        <div class="row">
-          <div class="grow" id="cur-code" style="font-size:22px;font-family:ui-monospace,monospace"></div>
-          <div class="muted" id="cur-meta"></div>
+      <div class="dash">
+        <div class="panel">
+          <div class="panel-head"><h2>近 7 天访问</h2><span class="spacer"></span><span class="sub">按天统计</span></div>
+          <div class="bars" id="bars"></div>
         </div>
-      </div>
-      <div class="panel">
-        <h2>修改 PIN</h2>
-        <div class="row">
-          <input id="pin-current" type="password" inputmode="numeric" placeholder="当前后台 PIN" style="width:160px">
-          <input id="pin-next" type="password" inputmode="numeric" placeholder="新 PIN（4-8 位数字）" style="width:200px">
-          <button class="btn" id="pin-save" type="button">更新</button>
+        <div class="stack">
+          <div class="panel">
+            <div class="panel-head"><h2>当前验证码</h2></div>
+            <div class="cur-code" id="cur-code">—</div>
+            <div class="cur-meta" id="cur-meta">当前没有有效验证码</div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>修改 PIN</h2>
+              <span class="hint" tabindex="0" aria-label="PIN 说明">?<span class="bubble">4-8 位数字。仅用于保护后台管理页，前台展示不需要登录。</span></span>
+            </div>
+            <div class="row" style="align-items:flex-end">
+              <div class="field grow">
+                <span class="field-label">当前 PIN</span>
+                <input id="pin-current" type="password" inputmode="numeric" placeholder="当前后台 PIN">
+              </div>
+              <div class="field grow">
+                <span class="field-label">新 PIN</span>
+                <input id="pin-next" type="password" inputmode="numeric" placeholder="4-8 位数字">
+              </div>
+              <button class="btn" id="pin-save" type="button">更新</button>
+            </div>
+            <div class="muted" id="pin-msg" style="margin-top:8px;min-height:16px"></div>
+          </div>
         </div>
-        <div class="muted" id="pin-msg" style="margin-top:8px">仅用于保护后台管理页，前台展示不需要登录。</div>
       </div>
     </section>
 
     <!-- 访问日志 -->
-    <section id="tab-views" hidden>
+    <section class="page" id="tab-views" hidden>
       <div class="panel">
         <div class="row" style="margin-bottom:12px">
-          <input id="f-ip" placeholder="按 IP 筛选" style="width:200px">
-          <select id="f-result" style="width:140px">
+          <input id="f-ip" class="w-200" placeholder="按 IP 筛选">
+          <select id="f-result" class="w-130">
             <option value="">全部结果</option>
             <option value="success">成功查看</option>
             <option value="denied">登录失败</option>
@@ -188,17 +395,20 @@
           <span class="spacer"></span>
           <span class="muted" id="views-total"></span>
         </div>
-        <table>
-          <thead>
-            <tr><th style="width:150px">时间</th><th style="width:140px">IP 地址</th><th style="width:180px">归属地</th><th style="width:100px">结果</th><th>UA</th><th style="width:70px">停留</th><th style="width:80px">操作</th></tr>
-          </thead>
-          <tbody id="views-body"></tbody>
-        </table>
-        <div class="row" style="margin-top:12px; justify-content:flex-end">
-          <span class="muted" id="views-page"></span>
+        <div class="table-hint">表格可左右滑动查看，时间列与操作列已固定</div>
+        <div class="table-wrap">
+          <table class="t-views">
+            <thead>
+              <tr><th class="sticky-l w-time">时间</th><th class="w-ip">IP 地址</th><th class="w-loc">归属地</th><th class="w-result">结果</th><th>UA</th><th class="num w-dwell">停留</th><th class="actions w-act-1">操作</th></tr>
+            </thead>
+            <tbody id="views-body"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span class="muted page-info" id="views-page"></span>
           <button class="btn sm" id="views-first" type="button">首页</button>
           <button class="btn sm" id="views-prev" type="button">上一页</button>
-          <input id="views-jump" type="number" min="1" placeholder="页码" style="width:76px">
+          <input id="views-jump" class="page-jump" type="number" min="1" placeholder="页码">
           <button class="btn sm" id="views-go" type="button">跳转</button>
           <button class="btn sm" id="views-next" type="button">下一页</button>
           <button class="btn sm" id="views-last" type="button">末页</button>
@@ -207,11 +417,11 @@
     </section>
 
     <!-- 登录日志 -->
-    <section id="tab-logins" hidden>
+    <section class="page" id="tab-logins" hidden>
       <div class="panel">
         <div class="row" style="margin-bottom:12px">
-          <input id="login-ip" placeholder="按 IP 筛选" style="width:200px">
-          <select id="login-result" style="width:140px">
+          <input id="login-ip" class="w-200" placeholder="按 IP 筛选">
+          <select id="login-result" class="w-130">
             <option value="">全部结果</option>
             <option value="success">登录成功</option>
             <option value="bad_pin">密码错误</option>
@@ -223,17 +433,20 @@
           <span class="spacer"></span>
           <span class="muted" id="login-total"></span>
         </div>
-        <table>
-          <thead>
-            <tr><th style="width:150px">时间</th><th style="width:140px">IP 地址</th><th style="width:180px">归属地</th><th style="width:100px">结果</th><th>UA</th><th style="width:80px">操作</th></tr>
-          </thead>
-          <tbody id="login-body"></tbody>
-        </table>
-        <div class="row" style="margin-top:12px; justify-content:flex-end">
-          <span class="muted" id="login-page"></span>
+        <div class="table-hint">表格可左右滑动查看，时间列与操作列已固定</div>
+        <div class="table-wrap">
+          <table class="t-logins">
+            <thead>
+              <tr><th class="sticky-l w-time">时间</th><th class="w-ip">IP 地址</th><th class="w-loc">归属地</th><th class="w-result">结果</th><th>UA</th><th class="actions w-act-1">操作</th></tr>
+            </thead>
+            <tbody id="login-body"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span class="muted page-info" id="login-page"></span>
           <button class="btn sm" id="login-first" type="button">首页</button>
           <button class="btn sm" id="login-prev" type="button">上一页</button>
-          <input id="login-jump" type="number" min="1" placeholder="页码" style="width:76px">
+          <input id="login-jump" class="page-jump" type="number" min="1" placeholder="页码">
           <button class="btn sm" id="login-go" type="button">跳转</button>
           <button class="btn sm" id="login-next" type="button">下一页</button>
           <button class="btn sm" id="login-last" type="button">末页</button>
@@ -242,74 +455,112 @@
     </section>
 
     <!-- IP 规则 -->
-    <section id="tab-rules" hidden>
+    <section class="page" id="tab-rules" hidden>
       <div class="panel">
-        <div class="row">
-          <h2 style="margin:0">海外 IP 拦截</h2>
+        <div class="panel-head">
+          <h2>海外 IP 拦截</h2>
+          <span class="hint" tabindex="0" aria-label="海外拦截说明">?<span class="bubble">开启后非中国大陆来源一律 403 并记入访问日志；内网、已登录后台与「始终放行」IP 不受影响。</span></span>
+          <span class="spacer"></span>
           <label class="switch">
             <input type="checkbox" id="overseas-toggle">
             <span class="track"></span>
             <span id="overseas-state" class="muted">已关闭</span>
           </label>
-          <span class="muted">开启后非中国大陆来源一律 403 并记入访问日志；内网、已登录后台与「始终放行」IP 不受影响。</span>
         </div>
+        <div class="muted">仅对前台公开页面生效，登录相关接口始终放行。</div>
       </div>
       <div class="panel">
-        <h2>新增规则</h2>
-        <div class="row">
-          <input id="rule-cidr" class="grow" placeholder="IP 或网段，如 1.2.3.4 / 10.0.0.0/8" style="max-width:320px">
-          <select id="rule-action" style="width:120px">
-            <option value="block">拉黑</option>
-            <option value="allow">始终放行</option>
-          </select>
-          <select id="rule-ttl" style="width:130px">
-            <option value="0">永久</option>
-            <option value="1">1 小时</option>
-            <option value="24">24 小时</option>
-            <option value="168">7 天</option>
-          </select>
-          <input id="rule-note" placeholder="备注（可选）" style="width:180px">
+        <div class="panel-head">
+          <h2>新增规则</h2>
+          <span class="hint" tabindex="0" aria-label="规则说明">?<span class="bubble">支持单 IP 与 CIDR 网段；allow 优先于 block。有效期结束后自动失效。登录相关接口不受规则影响。</span></span>
+        </div>
+        <div class="row" style="align-items:flex-end">
+          <div class="field grow" style="max-width:340px">
+            <span class="field-label">IP 或网段</span>
+            <input id="rule-cidr" placeholder="如 1.2.3.4 / 10.0.0.0/8">
+          </div>
+          <div class="field">
+            <span class="field-label">动作</span>
+            <select id="rule-action" class="w-120">
+              <option value="block">拉黑</option>
+              <option value="allow">始终放行</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">有效期</span>
+            <select id="rule-ttl" class="w-130">
+              <option value="0">永久</option>
+              <option value="1">1 小时</option>
+              <option value="24">24 小时</option>
+              <option value="168">7 天</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">备注</span>
+            <input id="rule-note" class="w-180" placeholder="可选">
+          </div>
           <button class="btn primary" id="rule-add" type="button">添加</button>
         </div>
-        <div class="muted" id="rule-msg" style="margin-top:8px"></div>
+        <div class="muted" id="rule-msg" style="margin-top:8px;min-height:16px"></div>
       </div>
       <div class="panel">
-        <h2>规则列表</h2>
-        <table>
-          <thead><tr><th>规则</th><th style="width:90px">动作</th><th>备注</th><th style="width:70px">命中</th><th style="width:150px">到期</th><th style="width:70px"></th></tr></thead>
-          <tbody id="rules-body"></tbody>
-        </table>
+        <div class="panel-head"><h2>规则列表</h2></div>
+        <div class="table-hint">表格可左右滑动查看，关键列已固定</div>
+        <div class="table-wrap">
+          <table class="t-rules">
+            <thead>
+              <tr><th class="sticky-l">规则</th><th class="w-result">动作</th><th>备注</th><th class="num w-dwell">命中</th><th class="w-loc">到期</th><th class="actions w-act-1">操作</th></tr>
+            </thead>
+            <tbody id="rules-body"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
     <!-- 设备 -->
-    <section id="tab-devices" hidden>
+    <section class="page" id="tab-devices" hidden>
       <div class="panel">
-        <h2>转发设备</h2>
+        <div class="panel-head">
+          <h2>转发设备</h2>
+          <span class="hint" tabindex="0" aria-label="设备说明">?<span class="bubble">换机或 Token 泄露时点「轮换」，旧 Token 立即失效，需要同步修改手机上的转发配置。复制出的地址为手机端 Webhook 地址。</span></span>
+        </div>
         <div class="muted" id="dev-hint" style="margin-bottom:10px"></div>
-        <table>
-          <thead><tr><th>名称</th><th style="width:80px">状态</th><th style="width:150px">最后心跳</th><th style="width:150px">最后短信</th><th>Token / Webhook</th><th style="width:330px">操作</th></tr></thead>
-          <tbody id="devices-body"></tbody>
-        </table>
-        <div class="muted" style="margin-top:10px">换机或 Token 泄露时点「轮换」，旧 Token 立即失效，需要同步改手机上的转发配置。</div>
+        <div class="table-hint">表格可左右滑动查看，操作列已固定</div>
+        <div class="table-wrap">
+          <table class="t-devices">
+            <thead>
+              <tr><th class="sticky-l">名称</th><th class="w-status">状态</th><th class="w-time">最后心跳</th><th class="w-time">最后短信</th><th>Token / Webhook</th><th class="actions w-act-4">操作</th></tr>
+            </thead>
+            <tbody id="devices-body"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
     <!-- 短信 -->
-    <section id="tab-messages" hidden>
+    <section class="page" id="tab-messages" hidden>
       <div class="panel">
-        <div class="row" style="margin-bottom:12px">
-          <h2 style="margin:0">最近短信</h2>
+        <div class="panel-head">
+          <h2>最近短信</h2>
+          <span class="hint" tabindex="0" aria-label="短信说明">?<span class="bubble">保留转发过来的完整短信内容与发件人，仅后台可见；前台永远不会展示发件人与原文。点击「短信全文」可展开。</span></span>
           <span class="spacer"></span>
-          <button class="btn sm danger" id="msg-clear" type="button">清空全部</button>
+          <button class="btn sm danger" id="msg-clear" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/></svg>
+            清空全部
+          </button>
         </div>
-        <table>
-          <thead><tr><th style="width:56px">#</th><th style="width:158px">收到时间</th><th style="width:150px">发件人</th><th style="width:90px">验证码</th><th>短信全文</th><th style="width:90px">状态</th></tr></thead>
-          <tbody id="messages-body"></tbody>
-        </table>
-        <div class="muted" style="margin-top:10px">这里保留转发过来的完整短信内容，仅后台可见；前台永远不会展示发件人与原文。</div>
+        <div class="table-hint">表格可左右滑动查看，编号列已固定</div>
+        <div class="table-wrap">
+          <table class="t-messages">
+            <thead>
+              <tr><th class="sticky-l w-msg-id">#</th><th class="w-time">收到时间</th><th class="w-sender">发件人</th><th class="w-code">验证码</th><th>短信全文</th><th class="w-state">状态</th></tr>
+            </thead>
+            <tbody id="messages-body"></tbody>
+          </table>
+        </div>
       </div>
     </section>
+    </main>
   </div>
 </div>
 
@@ -327,6 +578,28 @@
     overseas: ['海外拦截', 'bad'],
     denied: ['登录失败', 'dim'],
   };
+  // 页头标题
+  const PAGE_META = {
+    overview: ['概览', '今日运行状态与近 7 天访问趋势'],
+    views: ['访问日志', '前台访问审计：IP、归属地、UA 与停留时长'],
+    logins: ['登录日志', '后台登录尝试与近 15 分钟失败统计'],
+    rules: ['IP 规则', '海外 IP 拦截与黑名单 / 放行规则'],
+    devices: ['设备', '转发设备状态、Webhook 地址与 Token 管理'],
+    messages: ['短信', '转发短信原文与验证码，仅后台可见'],
+  };
+
+  /* ---------- 图标 ---------- */
+  const SVG = (body) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${body}</svg>`;
+  const ICONS = {
+    block: SVG('<circle cx="12" cy="12" r="8"/><path d="M6.5 17.5l11-11"/>'),
+    del: SVG('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/>'),
+    copy: SVG('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/>'),
+    link: SVG('<path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1.5 1.5"/><path d="M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1.5-1.5"/>'),
+    rotate: SVG('<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/>'),
+    power: SVG('<path d="M12 3v9"/><path d="M6.2 6.2a8 8 0 1 0 11.6 0"/>'),
+  };
+  const tipBtn = (icon, tip, attrs = '', cls = '') =>
+    `<button class="icon-btn ${cls}" type="button" title="${tip}" aria-label="${tip}" ${attrs}>${ICONS[icon]}</button>`;
 
   /* ---------- 基础 ---------- */
   const fmt = (sec) => (sec ? new Date(sec * 1000).toLocaleString('zh-CN', { hour12: false }) : '-');
@@ -420,7 +693,7 @@
       return;
     }
     $('cur-code').textContent = curMessage.code;
-    $('cur-meta').textContent = `${fmt(curMessage.receivedAt)} 收到 · 剩余 ${mmss(left)}`;
+    $('cur-meta').innerHTML = `${fmt(curMessage.receivedAt)} 收到 · 剩余 <strong>${mmss(left)}</strong>`;
   }
 
   async function loadOverview() {
@@ -507,13 +780,13 @@
       .map((v) => {
         const meta = VIEW_RESULTS[v.result] || [v.result, 'dim'];
         return `<tr>
-          <td>${fmt(v.time)}</td>
-          <td class="mono">${esc(v.ip)}</td>
+          <td class="sticky-l nowrap">${fmt(v.time)}</td>
+          <td class="mono clip" title="${esc(v.ip)}">${esc(v.ip)}</td>
           <td class="clip" title="${esc(v.location)}">${esc(v.location)}</td>
           <td><span class="tag ${meta[1]}">${meta[0]}</span></td>
           <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
-          <td>${dur(v.dwellMs)}</td>
-          <td><button class="btn sm danger" data-block="${esc(v.ip)}" type="button">拉黑</button></td>
+          <td class="num">${dur(v.dwellMs)}</td>
+          <td class="actions"><div class="btn-row">${tipBtn('block', '拉黑该 IP', `data-block="${esc(v.ip)}"`, 'danger')}</div></td>
         </tr>`;
       })
       .join('');
@@ -524,7 +797,7 @@
   }
 
   $('views-body').addEventListener('click', async (e) => {
-    const ip = e.target.dataset.block;
+    const ip = e.target.closest('button')?.dataset.block;
     if (!ip) return;
     if (!confirm(`确认拉黑 IP ${ip}？`)) return;
     await api('/admin/api/ip-rules', {
@@ -582,12 +855,12 @@
       .map((v) => {
         const meta = LOGIN_RESULTS[v.result] || [v.result, 'dim'];
         return `<tr>
-          <td>${fmt(v.time)}</td>
-          <td class="mono">${esc(v.ip)}</td>
+          <td class="sticky-l nowrap">${fmt(v.time)}</td>
+          <td class="mono clip" title="${esc(v.ip)}">${esc(v.ip)}</td>
           <td class="clip" title="${esc(v.location)}">${esc(v.location)}</td>
           <td><span class="tag ${meta[1]}">${meta[0]}</span></td>
           <td class="clip muted" title="${esc(v.ua)}">${esc(v.ua || '-')}</td>
-          <td><button class="btn sm danger" data-block="${esc(v.ip)}" type="button">拉黑</button></td>
+          <td class="actions"><div class="btn-row">${tipBtn('block', '拉黑该 IP', `data-block="${esc(v.ip)}"`, 'danger')}</div></td>
         </tr>`;
       })
       .join('');
@@ -598,7 +871,7 @@
   }
 
   $('login-body').addEventListener('click', async (e) => {
-    const ip = e.target.dataset.block;
+    const ip = e.target.closest('button')?.dataset.block;
     if (!ip) return;
     if (!confirm(`确认拉黑 IP ${ip}？`)) return;
     await api('/admin/api/ip-rules', {
@@ -631,12 +904,12 @@
     $('rules-body').innerHTML = (d.items || [])
       .map(
         (r) => `<tr>
-          <td class="mono">${esc(r.cidr)}</td>
+          <td class="mono clip sticky-l" title="${esc(r.cidr)}">${esc(r.cidr)}</td>
           <td><span class="tag ${r.action === 'block' ? 'bad' : 'ok'}">${r.action === 'block' ? '拉黑' : '放行'}</span></td>
           <td class="clip" title="${esc(r.note)}">${esc(r.note || '-')}</td>
-          <td>${r.hits}</td>
-          <td>${r.expiresAt ? fmt(r.expiresAt) : '永久'}</td>
-          <td><button class="btn sm" data-del="${r.id}" type="button">删除</button></td>
+          <td class="num">${r.hits}</td>
+          <td class="nowrap">${r.expiresAt ? fmt(r.expiresAt) : '永久'}</td>
+          <td class="actions"><div class="btn-row">${tipBtn('del', '删除规则', `data-del="${r.id}"`, 'danger')}</div></td>
         </tr>`,
       )
       .join('') || '<tr><td colspan="6" class="empty">暂无规则</td></tr>';
@@ -663,7 +936,7 @@
   });
 
   $('rules-body').addEventListener('click', async (e) => {
-    const id = e.target.dataset.del;
+    const id = e.target.closest('button')?.dataset.del;
     if (!id || !confirm('确认删除该规则？')) return;
     await api(`/admin/api/ip-rules/${id}`, { method: 'DELETE' });
     loadRules();
@@ -703,34 +976,41 @@
     $('devices-body').innerHTML = (d.items || [])
       .map(
         (dev) => `<tr>
-          <td>${esc(dev.name)}</td>
+          <td class="clip sticky-l" title="${esc(dev.name)}">${esc(dev.name)}</td>
           <td><span class="tag ${dev.enabled ? 'ok' : 'dim'}">${dev.enabled ? '启用' : '停用'}</span></td>
-          <td>${fmt(dev.lastHeartbeatAt)}</td>
-          <td>${fmt(dev.lastMessageAt)}</td>
+          <td class="nowrap">${fmt(dev.lastHeartbeatAt)}</td>
+          <td class="nowrap">${fmt(dev.lastMessageAt)}</td>
           <td class="mono clip" title="${esc(base)}/h/${esc(dev.token)}">${esc(base)}/h/${esc(dev.token)}</td>
-          <td class="actions">
-            <button class="btn sm" data-copy-url="${esc(base)}/h/${esc(dev.token)}" type="button">复制地址</button>
-            <button class="btn sm" data-copy="${esc(dev.token)}" type="button">复制 Token</button>
-            <button class="btn sm" data-rotate="${dev.id}" type="button">轮换</button>
-            <button class="btn sm" data-toggle="${dev.id}" type="button">${dev.enabled ? '停用' : '启用'}</button>
-          </td>
+          <td class="actions"><div class="btn-row">
+            ${tipBtn('link', '复制 Webhook 地址', `data-copy-url="${esc(base)}/h/${esc(dev.token)}"`)}
+            ${tipBtn('copy', '复制 Token', `data-copy="${esc(dev.token)}"`)}
+            ${tipBtn('rotate', '轮换 Token', `data-rotate="${dev.id}"`)}
+            ${tipBtn('power', dev.enabled ? '停用设备' : '启用设备', `data-toggle="${dev.id}"`)}
+          </div></td>
         </tr>`,
       )
       .join('') || '<tr><td colspan="6" class="empty">暂无设备</td></tr>';
   }
 
+  // 复制成功时只改 tooltip 与配色，不挤动同行按钮
+  async function copyTip(btn, text) {
+    const old = btn.title;
+    await navigator.clipboard.writeText(text).catch(() => {});
+    btn.classList.add('ok');
+    btn.title = '已复制';
+    btn.setAttribute('aria-label', '已复制');
+    setTimeout(() => {
+      btn.classList.remove('ok');
+      btn.title = old;
+      btn.setAttribute('aria-label', old);
+    }, 1200);
+  }
+
   $('devices-body').addEventListener('click', async (e) => {
-    const btn = e.target;
-    if (btn.dataset.copyUrl) {
-      await navigator.clipboard.writeText(btn.dataset.copyUrl).catch(() => {});
-      btn.textContent = '已复制';
-      setTimeout(() => (btn.textContent = '复制地址'), 1200);
-    }
-    if (btn.dataset.copy) {
-      await navigator.clipboard.writeText(btn.dataset.copy).catch(() => {});
-      btn.textContent = '已复制';
-      setTimeout(() => (btn.textContent = '复制 Token'), 1200);
-    }
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.copyUrl) await copyTip(btn, btn.dataset.copyUrl);
+    if (btn.dataset.copy) await copyTip(btn, btn.dataset.copy);
     if (btn.dataset.rotate && confirm('轮换后旧 Token 立即失效，手机端需要同步修改。继续？')) {
       const d = await api(`/admin/api/devices/${btn.dataset.rotate}/rotate`, { method: 'POST' });
       alert(`新 Webhook 地址：${location.origin}/h/${d.token}\n新 Token：${d.token}`);
@@ -749,8 +1029,8 @@
       .map((m) => {
         const status = m.status === 'active' ? '有效' : m.status === 'dropped' ? '未识别' : '已过期';
         return `<tr>
-          <td>${m.id}</td>
-          <td>${fmt(m.receivedAt)}</td>
+          <td class="sticky-l num">${m.id}</td>
+          <td class="nowrap">${fmt(m.receivedAt)}</td>
           <td class="clip" title="${esc(m.sender || '')}">${esc(m.sender || '-')}</td>
           <td class="mono">${esc(m.code || '-')}</td>
           <td class="clip msg-text" title="${esc(m.rawText || '')}">${esc(m.rawText || '-')}</td>
@@ -791,6 +1071,10 @@
       ['overview', 'views', 'logins', 'rules', 'devices', 'messages'].forEach((id) => {
         $(`tab-${id}`).hidden = id !== currentTab;
       });
+      const meta = PAGE_META[currentTab];
+      $('page-title').textContent = meta[0];
+      $('page-sub').textContent = meta[1];
+      document.querySelector('.main').scrollTop = 0;
       loaders[currentTab]().catch(() => {});
     });
   });
