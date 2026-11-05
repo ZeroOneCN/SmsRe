@@ -25,6 +25,33 @@ test('银行短信：尾号与金额不干扰', () => {
   assert.equal(r.code, '123456');
 });
 
+test('非 Apple 来源：社交与购物验证码', () => {
+  assert.equal(extractCode('【腾讯科技】您的微信登录验证码为123456，5分钟内有效。').code, '123456');
+  assert.equal(extractCode('【淘宝】验证码 654321，您正在登录，请勿向他人泄露。').code, '654321');
+});
+
+test('非 Apple 来源：支付与银行验证码', () => {
+  assert.equal(extractCode('【某银行】消费100.00元，验证码为123456，尾号8888。').code, '123456');
+  assert.equal(extractCode('【某支付】验证码 4321，银行卡尾号 8888。').code, '4321');
+});
+
+test('非 Apple 来源：国际服务英文模板', () => {
+  assert.equal(extractCode('G-123456 is your Google verification code.').code, '123456');
+  assert.equal(extractCode('Use 123456 as your Microsoft account security code.').code, '123456');
+});
+
+test('非 Apple 触发词：登录码/认证码/授权码/密码类', () => {
+  assert.equal(extractCode('【某App】您的登录码为 123456，账号尾号 8888，请勿泄露。').code, '123456');
+  assert.equal(extractCode('【某服务】认证码 123456，设备编号 88888888。').code, '123456');
+  assert.equal(extractCode('【某平台】您的授权码是 123456，订单编号 202410221234。').code, '123456');
+  assert.equal(extractCode('【某银行】登录密码 123456，账户尾号 8888。').code, '123456');
+  assert.equal(extractCode('【某服务】短信密码为 123456，手机号 13800138000。').code, '123456');
+});
+
+test('营销短信不因「验证」字样误报', () => {
+  assert.equal(extractCode('【某商城】完成验证即可领券，活动编号 20241022，客服 88888888。').code, null);
+});
+
 test('4 位验证码', () => {
   const r = extractCode('验证码 8317，5分钟内有效。');
   assert.equal(r.code, '8317');
